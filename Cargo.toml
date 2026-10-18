@@ -1,0 +1,16 @@
+[workspace]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99.1"
+description = ""
+documentation = ""
+readme = "README.md"
+homepage = "https://github.com/dangreco/provident"
+repository = "https://github.com/dangreco/provident"
+license-file = "LICENSE"
+keywords = []
+categories = []
+publish = false
