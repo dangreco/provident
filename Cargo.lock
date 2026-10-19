@@ -801,20 +801,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "provident_client"
-version = "0.1.0"
-dependencies = [
- "maybe-async",
- "provident_http",
- "provident_models",
- "thiserror",
-]
-
-[[package]]
-name = "provident_http"
+name = "provident"
 version = "0.1.0"
 dependencies = [
  "bon",
+ "chrono",
+ "maybe-async",
  "reqwest",
  "serde",
  "serde_json",
@@ -824,26 +816,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "provident_models"
-version = "0.1.0"
-dependencies = [
- "bon",
- "chrono",
- "http",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "thiserror",
-]
-
-[[package]]
 name = "provident_tests"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "dotenvy",
  "maybe-async",
- "provident_client",
+ "provident",
  "tokio",
 ]
 

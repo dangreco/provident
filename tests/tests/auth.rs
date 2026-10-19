@@ -2,8 +2,8 @@
 
 //! End-to-end tests for `client.auth`.
 
-use provident_client::Error;
-use provident_client::models::login::login_service::process_login::ProcessLoginRequest;
+use provident::Error;
+use provident::models::login::login_service::process_login::ProcessLoginRequest;
 use provident_tests::{client, credentials};
 
 #[ignore = "e2e"]

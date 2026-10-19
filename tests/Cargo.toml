@@ -4,25 +4,22 @@ description = "End-to-end tests against the real Provident endpoint"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-documentation.workspace = true
-readme.workspace = true
+license.workspace = true
 homepage.workspace = true
 repository.workspace = true
-license-file.workspace = true
-keywords.workspace = true
-categories.workspace = true
-publish.workspace = true
+authors.workspace = true
+publish = false
 
 [features]
 # Exactly one of `async` / `blocking`; selects which client mode the e2e tests exercise.
 default = ["async"]
-async = ["provident_client/async"]
-blocking = ["provident_client/blocking", "maybe-async/is_sync"]
+async = ["provident/async"]
+blocking = ["provident/blocking", "maybe-async/is_sync"]
 
 [dependencies]
 dotenvy = "0.15.7"
 maybe-async = "0.2.11"
-provident_client = { path = "../lib/client", default-features = false }
+provident = { path = "..", default-features = false }
 
 [dev-dependencies]
 chrono = { version = "0.4.45", default-features = false, features = ["std"] }
