@@ -1,0 +1,28 @@
+[package]
+name = "provident_tests"
+description = "End-to-end tests against the real Provident endpoint"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+documentation.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+categories.workspace = true
+publish.workspace = true
+
+[features]
+# Exactly one of `async` / `blocking`; selects which client mode the e2e tests exercise.
+default = ["async"]
+async = ["provident_client/async"]
+blocking = ["provident_client/blocking", "maybe-async/is_sync"]
+
+[dependencies]
+dotenvy = "0.15.7"
+maybe-async = "0.2.11"
+provident_client = { path = "../lib/client", default-features = false }
+
+[dev-dependencies]
+tokio = { version = "1.53.3", features = ["macros", "rt-multi-thread"] }

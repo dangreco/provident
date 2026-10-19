@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
+rules:
+  # Suggests the new `$/` self-repository syntax, which actionlint does not accept yet.
+  # `./` is equivalent here: every workflow checks out the repo before using local actions.
+  self-repository:
+    disable: true

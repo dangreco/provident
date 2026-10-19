@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Reusable pipeline shared by `pr.yml` and `dev.yml`.
+#
+# One job on purpose: Actions bills each job rounded up to the minute and every job pays Nix +
+# Cargo cache restore, so sequential steps in a single job cost the fewest minutes. Steps run
+# cheapest-first so most failures stop the run early.
+
+name: CI
+
+on:
+  workflow_call:
+    secrets:
+      PROVIDENT_USERNAME:
+        required: false
+      PROVIDENT_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Fail instead of silently updating Cargo.lock.
+  CARGO: cargo --locked
+  # `secrets` can't be used in `if:`; expose presence (never the value) as a flag.
+  HAS_CREDENTIALS: ${{ secrets.PROVIDENT_USERNAME != '' && secrets.PROVIDENT_PASSWORD != '' }}
+
+jobs:
+  ci:
+    name: Hooks, lint, test (async + blocking), e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # cache-nix-action purges old Nix caches.
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          cargo-cache-key: ci
+
+      # The same hooks developers run on commit (formatting, TOML, spelling, secrets, SPDX, Nix).
+      - name: Pre-commit hooks
+        run: pre-commit run --config "$PRE_COMMIT_CONFIG" --all-files --show-diff-on-failure
+
+      - name: Lint (async)
+        run: make lint MODE=async CARGO="$CARGO"
+
+      - name: Lint (blocking)
+        run: make lint MODE=blocking CARGO="$CARGO"
+
+      - name: Unit tests (async)
+        run: make test-unit MODE=async CARGO="$CARGO"
+
+      - name: Unit tests (blocking)
+        run: make test-unit MODE=blocking CARGO="$CARGO"
+
+      # Secrets are absent for PRs from forks; skip rather than fail on missing credentials.
+      - name: E2E tests (async)
+        if: ${{ env.HAS_CREDENTIALS == 'true' }}
+        run: make test-e2e MODE=async CARGO="$CARGO"
+        env:
+          PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
+          PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}
+
+      - name: E2E tests (blocking)
+        if: ${{ env.HAS_CREDENTIALS == 'true' }}
+        run: make test-e2e MODE=blocking CARGO="$CARGO"
+        env:
+          PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
+          PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}

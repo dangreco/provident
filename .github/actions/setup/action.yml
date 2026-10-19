@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
+name: Setup
+description: >
+  Nix (cached) + the flake's `ci` dev shell exported into later steps, and Cargo caches.
+  Caches are only saved from runs on `dev` (push / manual); PRs restore them read-only so a
+  PR never evicts the base branch's warm cache.
+
+inputs:
+  cargo-cache-key:
+    description: Distinguishes Cargo caches between jobs that compile different things.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install Nix
+      uses: nixbuild/nix-quick-install-action@9f63be77f412a248c9d9a65a4c82cf066cdf8f0c # v35
+      with:
+        nix_conf: |
+          keep-env-derivations = true
+          keep-outputs = true
+
+    - name: Setup Nix cache
+      uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+      with:
+        primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+        restore-prefixes-first-match: nix-${{ runner.os }}-
+        save: ${{ github.ref == 'refs/heads/dev' && github.event_name != 'pull_request' }}
+        # The `ci` shell closure is ~1.6 GiB; a smaller cap would GC the toolchain before saving.
+        gc-max-store-size-linux: 2G
+        purge: true
+        purge-prefixes: nix-${{ runner.os }}-
+        purge-created: 0
+        purge-last-accessed: P1DT12H
+        purge-primary-key: never
+
+    # Export the `ci` shell's environment (OPENSSL_*, PKG_CONFIG_PATH, PRE_COMMIT_CONFIG, …)
+    # to $GITHUB_ENV and its PATH to $GITHUB_PATH, so later steps run plain commands.
+    # `--profile` registers a GC root, keeping the shell in the saved Nix cache.
+    # The values come from this repo's flake (Nix store paths), not from untrusted event data,
+    # and no workflow using this action runs on `pull_request_target`.
+    - name: Enter dev shell
+      shell: bash
+      run: | # zizmor: ignore[github-env]
+        env_json="$RUNNER_TEMP/ci-shell.json"
+        nix print-dev-env .#ci --profile "$RUNNER_TEMP/ci-shell" --json >"$env_json"
+        jq -r '
+          .variables
+          | to_entries[]
+          | select(.value.type == "exported")
+          | select(.key | IN("PATH", "HOME", "TMPDIR", "TEMP", "TMP", "TEMPDIR",
+                             "NIX_BUILD_TOP", "PWD", "OLDPWD", "SHLVL", "SHELL") | not)
+          | "\(.key)<<__NIX_ENV_EOF__\n\(.value.value)\n__NIX_ENV_EOF__"
+        ' "$env_json" >>"$GITHUB_ENV"
+        # The Nix cc wrapper requires NIX_BUILD_TOP; `nix develop` points it at a temp dir.
+        echo "NIX_BUILD_TOP=$RUNNER_TEMP" >>"$GITHUB_ENV"
+        # Each $GITHUB_PATH line is prepended, so write in reverse to keep the shell's order.
+        jq -r '.variables.PATH.value | split(":") | reverse[]' "$env_json" >>"$GITHUB_PATH"
+
+    # rust-cache keys on `rustc -vV` (now on PATH), Cargo.lock, and Cargo.toml files.
+    - name: Cargo cache
+      uses: Swatinem/rust-cache@63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7 # v2.9.2
+      with:
+        shared-key: ${{ inputs.cargo-cache-key }}
+        save-if: ${{ github.ref == 'refs/heads/dev' && github.event_name != 'pull_request' }}

@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
+name: PR
+
+on:
+  pull_request:
+    branches: [dev]
+    # Skip runs that can't change build or test results.
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
+      - ".envrc"
+
+# A new push to the PR cancels its in-flight run.
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      actions: write
+    # Repo secrets; GitHub withholds them from fork PRs, where e2e is skipped.
+    secrets:
+      PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
+      PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}

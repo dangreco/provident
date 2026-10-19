@@ -42,7 +42,14 @@
 
           rust = rec {
             version = "1.99.1";
-            package = pkgs'.rust-bin.stable.${version}.default.override {
+            # `minimal` = rustc, cargo, rust-std; no rust-docs (~700 MiB) to keep CI's Nix cache small.
+            ci = pkgs'.rust-bin.stable.${version}.minimal.override {
+              extensions = [
+                "clippy"
+                "rustfmt"
+              ];
+            };
+            package = ci.override {
               extensions = [
                 "rust-src"
                 "clippy"
@@ -81,23 +88,15 @@
             # Rust
             rustfmt = {
               enable = true;
+              # Same rustfmt as `rust.package`, without dragging rust-docs into the CI shell.
               packageOverrides = {
-                cargo = rust.package;
-                rustfmt = rust.package;
+                cargo = rust.ci;
+                rustfmt = rust.ci;
               };
             };
-            clippy = {
-              enable = true;
-              packageOverrides = {
-                cargo = rust.package;
-                clippy = rust.package;
-              };
-              settings = {
-                offline = true;
-                allFeatures = true;
-                denyWarnings = true;
-              };
-            };
+            # Not a hook: `async`/`blocking` are mutually exclusive, so `--all-features` can never
+            # compile. Clippy runs per mode via `make lint MODE=…` (locally and in CI).
+            clippy.enable = false;
             cargo-sort.enable = true;
 
             # TOML
@@ -106,6 +105,24 @@
 
             # Spelling
             typos.enable = true;
+
+            # GitHub Actions (workflows + the local composite action)
+            actionlint.enable = true;
+            zizmor = {
+              enable = true;
+              files = "^\\.github/(workflows|actions)/";
+              # Network-free so the hook is deterministic in CI and offline.
+              entry = "${pkgs.zizmor}/bin/zizmor --offline";
+            };
+            pinact = {
+              enable = true;
+              name = "pinact";
+              description = "Ensure GitHub Actions are pinned to full commit SHAs";
+              entry = "${pkgs.pinact}/bin/pinact run --check";
+              files = "^\\.github/(workflows|actions)/";
+              types = [ "yaml" ];
+              pass_filenames = false;
+            };
 
             # Utility
             check-merge-conflicts.enable = true;
@@ -154,7 +171,24 @@
               ];
             };
 
-            ci = config.devShells.default;
+            # Lean shell for GitHub Actions: CI toolchain + hook tools; no editor tooling, and no
+            # git-hooks shellHook (it would install hooks). Exports the hook config instead so CI
+            # runs exactly the hooks developers do: `pre-commit run -c "$PRE_COMMIT_CONFIG" …`.
+            ci = pkgs.mkShellNoCC {
+              PRE_COMMIT_CONFIG = config.pre-commit.settings.configFile;
+
+              packages = [
+                config.pre-commit.settings.package
+                pkgs.gnumake
+              ]
+              ++ config.pre-commit.settings.enabledPackages;
+
+              buildInputs = with pkgs; [ openssl ];
+              nativeBuildInputs = with pkgs; [
+                pkg-config
+                rust.ci
+              ];
+            };
           };
         };
     };

@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Runs on every merge to `dev`. Besides validating the merged result, this is the only workflow
+# that saves Nix/Cargo caches (see `.github/actions/setup`), so PRs restore a warm cache.
+
+name: Dev
+
+on:
+  push:
+    branches: [dev]
+  # Manual re-run, e.g. to re-warm caches after they expire.
+  workflow_dispatch:
+
+# Queue rather than cancel: every merged commit should get a verdict.
+concurrency:
+  group: dev
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      actions: write
+    secrets:
+      PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
+      PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}

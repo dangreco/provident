@@ -2,3 +2,4 @@
 .envrc
 .pre-commit-config.yaml
 /target
+.env
