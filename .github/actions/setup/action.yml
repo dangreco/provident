@@ -49,8 +49,12 @@ runs:
           .variables
           | to_entries[]
           | select(.value.type == "exported")
+          # Drop what `nix develop` itself resets: per-process/shell state, temp dirs, and
+          # build-sandbox flags. NIX_ENFORCE_PURITY=1 makes the cc wrapper reject any path
+          # outside /nix/store and /tmp (e.g. the checkout target dir), breaking every link.
           | select(.key | IN("PATH", "HOME", "TMPDIR", "TEMP", "TMP", "TEMPDIR",
-                             "NIX_BUILD_TOP", "PWD", "OLDPWD", "SHLVL", "SHELL") | not)
+                             "NIX_BUILD_TOP", "NIX_ENFORCE_PURITY", "NIX_LOG_FD",
+                             "PWD", "OLDPWD", "SHLVL", "SHELL", "TERM", "TZ") | not)
           | "\(.key)<<__NIX_ENV_EOF__\n\(.value.value)\n__NIX_ENV_EOF__"
         ' "$env_json" >>"$GITHUB_ENV"
         # The Nix cc wrapper requires NIX_BUILD_TOP; `nix develop` points it at a temp dir.
