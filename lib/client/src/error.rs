@@ -11,4 +11,8 @@ pub enum Error {
     /// The server answered but refused the credentials.
     #[error("login rejected: {}", .message.as_deref().unwrap_or("no reason given"))]
     LoginRejected { message: Option<String> },
+
+    /// A meter in the account's meter tree could not be read (unexpected title or utility).
+    #[error(transparent)]
+    InvalidMeter(#[from] provident_models::api::internal::meter_tree::InvalidMeter),
 }

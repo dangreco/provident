@@ -2,8 +2,9 @@
 
 //! Typed data returned by the Provident (meterconnex) API.
 //!
-//! Responses are the page method's `d` value (`provident_http` strips the `{"d": ...}`
-//! envelope). ASP.NET-specific wire formats live in [`aspnet`].
+//! Two kinds of endpoint: ASP.NET page methods (`Page.aspx/Method`), whose responses are the
+//! `d` value (`provident_http` strips the `{"d": ...}` envelope), and plain JSON REST endpoints
+//! under [`api`]. ASP.NET-specific wire formats live in [`aspnet`].
 //!
 //! # Layout
 //!
@@ -28,8 +29,11 @@
 //! - Types shared by several methods go in the nearest common ancestor's own file
 //!   (e.g. `login/login_service/common.rs`), never in another method's `req.rs`/`res.rs`.
 //!   Domain types used across pages (e.g. [`common::Utility`]) live in [`common`].
+//! - REST endpoints follow the same layout with the path's segments as modules (e.g.
+//!   `api/internal/metertree/rootnodes` → `api::internal::meter_tree::root_nodes`); `req.rs`
+//!   holds query parameters and `res.rs` the bare response body.
 
+pub mod api;
 pub mod aspnet;
 pub mod common;
 pub mod login;
-pub mod secure;

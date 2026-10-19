@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! `/secure/Dashboard/`.
+//! `/api/internal/`.
 
-pub mod default;
+pub mod meter_tree;
