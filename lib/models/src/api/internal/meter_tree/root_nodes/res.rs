@@ -9,7 +9,7 @@ pub type RootNodesResponse = Vec<TreeNode>;
 mod tests {
     use super::*;
     use crate::api::internal::meter_tree::Meter;
-    use crate::common::Utility;
+    use crate::common::{GroupId, NodeId, Utility};
 
     // Same shape as an observed response; identifiers are made up.
     const PAYLOAD: &str = r##"[
@@ -22,7 +22,8 @@ mod tests {
     fn decodes_observed_shape() {
         let nodes: RootNodesResponse = serde_json::from_str(PAYLOAD).unwrap();
         assert_eq!(nodes.len(), 3);
-        assert_eq!(nodes[0].group_id(), Some(7));
+        assert_eq!(nodes[0].group_id(), Some(GroupId(7)));
+        assert_eq!(nodes[1].parent, Some(NodeId::Group(GroupId(7))));
         assert!(nodes[0].anchor.is_none() && !nodes[0].has_unloaded_children());
 
         let meters: Vec<_> = nodes

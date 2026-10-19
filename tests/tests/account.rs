@@ -27,6 +27,34 @@ async fn meters_are_listed_for_signed_in_account() {
 
 #[ignore = "e2e"]
 #[maybe_async::test(feature = "blocking", async(feature = "async", tokio::test))]
+async fn meters_are_found_by_id_and_serial_and_located() {
+    let client = client();
+    client.auth.login(&credentials()).await.unwrap();
+    let meters = client.account.meters().await.unwrap();
+    let first = meters.first().expect("account has meters");
+
+    let by_id = client.account.meter(first.id).await.unwrap();
+    assert_eq!(by_id.as_ref(), Some(first));
+    let by_serial = client.account.meter_by_serial(&first.serial).await.unwrap();
+    assert_eq!(by_serial.as_ref(), Some(first));
+    let missing = client
+        .account
+        .meter_by_serial("no-such-serial")
+        .await
+        .unwrap();
+    assert_eq!(missing, None);
+
+    // Ancestors end with the meter's own group and include a site (building).
+    let location = client.account.location(first.id).await.unwrap();
+    assert_eq!(location.last().and_then(|n| n.group_id()), first.group);
+    assert!(
+        location.iter().any(|n| n.is_site()),
+        "no site in {location:?}"
+    );
+}
+
+#[ignore = "e2e"]
+#[maybe_async::test(feature = "blocking", async(feature = "async", tokio::test))]
 async fn utilities_are_those_of_the_accounts_meters() {
     let client = client();
     client.auth.login(&credentials()).await.unwrap();
