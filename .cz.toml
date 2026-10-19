@@ -1,0 +1,7 @@
+# Commitizen only validates commit messages (`commit-msg` hook) and drives `cz commit`;
+# versioning, tags and CHANGELOG.md are owned by release-please, so `cz bump` is not used.
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "cargo"
+tag_format = "v$version"
+major_version_zero = true
