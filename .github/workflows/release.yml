@@ -1,15 +1,22 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
-# Maintains a release PR on `dev` from Conventional Commits (version bump in Cargo.toml and
-# Cargo.lock, CHANGELOG.md). Merging that PR tags `vX.Y.Z` and publishes a GitHub release.
+# Release flow (`dev` is integration, `main` is production):
+#
+#   push to dev ─▶ Release Please ─┬─ no release: open/update the release PR on `dev`
+#                                  └─ release PR merged: tag vX.Y.Z + GitHub release
+#                                        ─▶ Promote: fast-forward `main` to that tag
+#
+# Release Please derives the version bump (Cargo.toml, Cargo.lock) and CHANGELOG.md from
+# Conventional Commits. `main` only ever moves to a released commit, and only forward: if it
+# has diverged from `dev`, promotion fails instead of rewriting it.
 #
 # Authenticates as the `dangreco-release` GitHub App instead of GITHUB_TOKEN: pull requests
 # opened with GITHUB_TOKEN don't trigger workflows, so the release PR would never get the
-# required `CI` check. Each run mints a short-lived installation token from two secrets:
+# required `CI` check. Each job mints a short-lived installation token from two secrets:
 #   RELEASE_APP_CLIENT_ID    the app's Client ID
 #   RELEASE_APP_PRIVATE_KEY  a private key generated for the app
 # The app must be installed on this repository with Contents, Pull requests and Issues
-# (labels) set to read & write.
+# (labels) set to read & write. If `main` is protected, the app must be allowed to push to it.
 
 name: Release
 
@@ -18,7 +25,7 @@ on:
     branches: [dev]
   workflow_dispatch:
 
-# One release-please run at a time; later pushes queue behind it.
+# One release run at a time; later pushes queue behind it.
 concurrency:
   group: release
   cancel-in-progress: false
@@ -31,6 +38,10 @@ jobs:
     name: Release Please
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      released: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+      sha: ${{ steps.release.outputs.sha }}
     steps:
       - name: App token
         id: app-token
@@ -42,9 +53,48 @@ jobs:
           permission-pull-requests: write
           permission-issues: write
 
-      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+      - name: Release Please
+        id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           token: ${{ steps.app-token.outputs.token }}
           target-branch: dev
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  promote:
+    name: Promote to main
+    needs: release-please
+    if: ${{ needs.release-please.outputs.released == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: App token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      # Fast-forward only, via the API: creates `main` on the first release, and refuses
+      # (422) to move it if `main` is not an ancestor of the released commit.
+      - name: Fast-forward main to ${{ needs.release-please.outputs.tag }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ needs.release-please.outputs.sha }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+        run: |
+          set -euo pipefail
+          tagged=$(gh api "repos/$REPO/commits/$TAG" --jq .sha)
+          if [[ $tagged != "$SHA" ]]; then
+            echo "::error::$TAG points at $tagged, expected released commit $SHA"
+            exit 1
+          fi
+          if gh api "repos/$REPO/git/ref/heads/main" --silent 2>/dev/null; then
+            gh api --method PATCH "repos/$REPO/git/refs/heads/main" -f sha="$SHA" -F force=false
+          else
+            gh api --method POST "repos/$REPO/git/refs" -f ref=refs/heads/main -f sha="$SHA"
+          fi
+          echo "main → $TAG ($SHA)" >>"$GITHUB_STEP_SUMMARY"
