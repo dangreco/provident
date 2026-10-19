@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 //! The signed-in account. Requires [`crate::auth::Auth::login`] first; without a session these
-//! calls fail with HTTP 401. Wire endpoints: `provident_models::api::internal::meter_tree`.
+//! calls fail with HTTP 401. Wire endpoints: `provident_models::api::internal::meter_tree` and
+//! `provident_models::secure::account_info`.
 //!
 //! Not `Dashboard/Default.aspx/GetUtilities`: that page method intermittently answers with
 //! another account's utilities (portal-side shared state), while the meter tree is per-user.
 
+mod api_key;
+mod details;
 mod meters;
 mod utilities;
 

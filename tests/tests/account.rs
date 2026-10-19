@@ -77,6 +77,46 @@ async fn utilities_are_those_of_the_accounts_meters() {
 
 #[ignore = "e2e"]
 #[maybe_async::test(feature = "blocking", async(feature = "async", tokio::test))]
+async fn details_match_the_accounts_groups() {
+    let client = client();
+    let creds = credentials();
+    client.auth.login(&creds).await.unwrap();
+
+    let details = client.account.details().await.unwrap();
+    assert_eq!(details.login, creds.username);
+    assert!(!details.groups.is_empty(), "{details:?}");
+    // Every meter's suite name is one of the account's groups.
+    for meter in client.account.meters().await.unwrap() {
+        assert!(
+            details.groups.contains(&meter.name),
+            "{meter:?} not in {details:?}"
+        );
+    }
+}
+
+#[ignore = "e2e"]
+#[maybe_async::test(feature = "blocking", async(feature = "async", tokio::test))]
+async fn api_key_requires_the_account_password() {
+    let client = client();
+    let creds = credentials();
+    client.auth.login(&creds).await.unwrap();
+
+    let key = client.account.api_key(&creds.password).await.unwrap();
+    assert!(!key.is_empty());
+    // Stable across calls (reading does not rotate it).
+    let again = client.account.api_key(&creds.password).await.unwrap();
+    assert_eq!(again, key);
+
+    let rejected = client.account.api_key("not-the-password").await;
+    assert!(
+        matches!(&rejected, Err(Error::PasswordRejected { message: Some(m) }) if !m.is_empty()),
+        "{:?}",
+        rejected.map(|_| "<key>")
+    );
+}
+
+#[ignore = "e2e"]
+#[maybe_async::test(feature = "blocking", async(feature = "async", tokio::test))]
 async fn account_requires_session() {
     let result = client().account.meters().await;
     let status = match &result {
