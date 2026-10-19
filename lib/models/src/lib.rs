@@ -27,6 +27,9 @@
 //!   still get a unit `<Method>Request` so every endpoint has the same shape.
 //! - Types shared by several methods go in the nearest common ancestor's own file
 //!   (e.g. `login/login_service/common.rs`), never in another method's `req.rs`/`res.rs`.
+//!   Domain types used across pages (e.g. [`common::Utility`]) live in [`common`].
 
 pub mod aspnet;
+pub mod common;
 pub mod login;
+pub mod secure;
