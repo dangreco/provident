@@ -21,8 +21,9 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  # Fail instead of silently updating Cargo.lock.
-  CARGO: cargo --locked
+  # Fail instead of silently updating Cargo.lock. Not named `CARGO`: cargo subcommands
+  # (e.g. `cargo fmt` in the rustfmt hook) read `$CARGO` as the path to the cargo binary.
+  CARGO_CMD: cargo --locked
   # `secrets` can't be used in `if:`; expose presence (never the value) as a flag.
   HAS_CREDENTIALS: ${{ secrets.PROVIDENT_USERNAME != '' && secrets.PROVIDENT_PASSWORD != '' }}
 
@@ -49,28 +50,28 @@ jobs:
         run: pre-commit run --config "$PRE_COMMIT_CONFIG" --all-files --show-diff-on-failure
 
       - name: Lint (async)
-        run: make lint MODE=async CARGO="$CARGO"
+        run: make lint MODE=async CARGO="$CARGO_CMD"
 
       - name: Lint (blocking)
-        run: make lint MODE=blocking CARGO="$CARGO"
+        run: make lint MODE=blocking CARGO="$CARGO_CMD"
 
       - name: Unit tests (async)
-        run: make test-unit MODE=async CARGO="$CARGO"
+        run: make test-unit MODE=async CARGO="$CARGO_CMD"
 
       - name: Unit tests (blocking)
-        run: make test-unit MODE=blocking CARGO="$CARGO"
+        run: make test-unit MODE=blocking CARGO="$CARGO_CMD"
 
       # Secrets are absent for PRs from forks; skip rather than fail on missing credentials.
       - name: E2E tests (async)
         if: ${{ env.HAS_CREDENTIALS == 'true' }}
-        run: make test-e2e MODE=async CARGO="$CARGO"
+        run: make test-e2e MODE=async CARGO="$CARGO_CMD"
         env:
           PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
           PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}
 
       - name: E2E tests (blocking)
         if: ${{ env.HAS_CREDENTIALS == 'true' }}
-        run: make test-e2e MODE=blocking CARGO="$CARGO"
+        run: make test-e2e MODE=blocking CARGO="$CARGO_CMD"
         env:
           PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
           PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}
