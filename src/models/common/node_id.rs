@@ -45,7 +45,9 @@ impl fmt::Display for GroupId {
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum NodeId {
+    /// A group or site (`GROUP:<n>`).
     Group(GroupId),
+    /// A metering point (`MP:<n>`).
     Meter(MeterId),
 }
 
@@ -53,6 +55,7 @@ const GROUP_PREFIX: &str = "GROUP";
 const METER_PREFIX: &str = "MP";
 
 impl NodeId {
+    /// The group id, if this is a group (`GROUP:<n>`).
     pub const fn group(self) -> Option<GroupId> {
         match self {
             Self::Group(id) => Some(id),
@@ -60,6 +63,7 @@ impl NodeId {
         }
     }
 
+    /// The meter id, if this is a metering point (`MP:<n>`).
     pub const fn meter(self) -> Option<MeterId> {
         match self {
             Self::Meter(id) => Some(id),

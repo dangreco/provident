@@ -12,4 +12,5 @@ pub use res::{GetKeyResponse, GetKeyResult};
 /// Root-relative path, joined to the client base URL.
 pub const PATH: &str = "secure/AccountInfo.aspx/GetKey";
 
+/// HTTP method the endpoint accepts.
 pub const METHOD: reqwest::Method = reqwest::Method::POST;

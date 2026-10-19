@@ -9,6 +9,7 @@ use crate::models::aspnet::JsonString;
 /// `d` is the result serialized into a JSON string.
 pub type GetKeyResponse = JsonString<GetKeyResult>;
 
+/// Outcome of a key request: the API key on success, or an error message on a rejected password.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetKeyResult {

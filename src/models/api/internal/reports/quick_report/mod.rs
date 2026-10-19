@@ -12,4 +12,5 @@ pub use res::{QuickReportResponse, ReportRow, RowSource};
 /// Root-relative path, joined to the client base URL.
 pub const PATH: &str = "api/internal/reports/quickreport";
 
+/// HTTP method the endpoint accepts.
 pub const METHOD: reqwest::Method = reqwest::Method::GET;

@@ -7,6 +7,7 @@ use serde::Serialize;
 /// Body sent by AccountInfo.aspx: `{"password"}`.
 #[derive(Clone, PartialEq, Eq, Serialize)]
 pub struct GetKeyRequest {
+    /// Account password, re-entered to release the key; redacted from `Debug` output.
     pub password: String,
 }
 

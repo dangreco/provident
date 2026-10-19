@@ -17,6 +17,7 @@ use crate::models::common::NodeId;
 pub struct MeterList(pub Vec<NodeId>);
 
 impl MeterList {
+    /// Whether the list holds no nodes.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

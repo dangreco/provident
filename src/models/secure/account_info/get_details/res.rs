@@ -7,13 +7,17 @@ use crate::models::aspnet::JsonString;
 /// `d` is the profile serialized into a JSON string.
 pub type GetDetailsResponse = JsonString<AccountDetails>;
 
+/// Profile of the signed-in account.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountDetails {
     /// Login name, e.g. `587-3105`.
     pub login: String,
+    /// Given name.
     pub first_name: String,
+    /// Family name.
     pub last_name: String,
+    /// Contact email address, if the account has one.
     pub email: Option<String>,
     /// Names of the groups the account belongs to (its suites/units), e.g. `["3105"]`.
     pub groups: Vec<String>,

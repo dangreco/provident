@@ -19,6 +19,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 pub struct JsonString<T>(pub T);
 
 impl<T> JsonString<T> {
+    /// Returns the decoded value.
     pub fn into_inner(self) -> T {
         self.0
     }

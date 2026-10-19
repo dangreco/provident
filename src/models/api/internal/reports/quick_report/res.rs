@@ -9,6 +9,7 @@ use crate::models::common::{GroupId, MeterId};
 /// Rows keyed by utility label (`Cold Water (m3)`). Empty when nothing matched.
 pub type QuickReportResponse = BTreeMap<String, Vec<ReportRow>>;
 
+/// One row of a quick report: readings and consumption for a meter or an aggregated group.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ReportRow {
     /// Suite/unit name, e.g. `3105`.
@@ -26,6 +27,7 @@ pub struct ReportRow {
     /// Consumption over the range (`current - previous`).
     #[serde(rename = "Total")]
     pub total: Option<f64>,
+    /// Average consumption per day over the range.
     #[serde(rename = "Daily Average")]
     pub daily_average: Option<f64>,
     /// Meter id, or the negated group id for aggregated rows; see [`Self::source`].
@@ -39,12 +41,14 @@ pub struct ReportRow {
 /// What a [`ReportRow`] summarizes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RowSource {
+    /// A single meter.
     Meter(MeterId),
     /// Aggregated row (`aggregateGroups=true`).
     Group(GroupId),
 }
 
 impl ReportRow {
+    /// Whether this row is for a meter or, when `ID` is negative, an aggregated group.
     pub fn source(&self) -> RowSource {
         if self.id < 0 {
             RowSource::Group(GroupId(self.id.unsigned_abs()))

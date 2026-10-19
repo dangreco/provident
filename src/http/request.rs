@@ -16,6 +16,7 @@ use crate::http::error::{Error, Result, body_preview};
 #[derive(Debug, Clone, bon::Builder)]
 #[builder(derive(Debug, Clone))]
 pub struct Request {
+    /// HTTP method to send.
     #[builder(start_fn)]
     pub(crate) method: Method,
 
@@ -42,22 +43,27 @@ pub struct Request {
 }
 
 impl Request {
+    /// Starts a `GET` request to `path`.
     pub fn get(path: impl Into<String>) -> RequestBuilder {
         Self::builder(Method::GET, path)
     }
 
+    /// Starts a `POST` request to `path`.
     pub fn post(path: impl Into<String>) -> RequestBuilder {
         Self::builder(Method::POST, path)
     }
 
+    /// Starts a `PUT` request to `path`.
     pub fn put(path: impl Into<String>) -> RequestBuilder {
         Self::builder(Method::PUT, path)
     }
 
+    /// Starts a `PATCH` request to `path`.
     pub fn patch(path: impl Into<String>) -> RequestBuilder {
         Self::builder(Method::PATCH, path)
     }
 
+    /// Starts a `DELETE` request to `path`.
     pub fn delete(path: impl Into<String>) -> RequestBuilder {
         Self::builder(Method::DELETE, path)
     }
@@ -80,10 +86,12 @@ impl Request {
         builder
     }
 
+    /// HTTP method of this request.
     pub fn method(&self) -> &Method {
         &self.method
     }
 
+    /// Path relative to the client's base URL, as given (a leading `/` is not stripped here).
     pub fn path(&self) -> &str {
         &self.path
     }
@@ -127,6 +135,7 @@ pub trait Endpoint {
     /// Deserialized response body. Use `()` for endpoints with no/empty body.
     type Response: DeserializeOwned;
 
+    /// Builds the [`Request`] for this operation; fails if the query or body cannot be encoded.
     fn request(&self) -> Result<Request>;
 }
 

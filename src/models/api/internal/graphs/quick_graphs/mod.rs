@@ -39,4 +39,5 @@ pub use res::{QuickGraphsResponse, Series};
 /// Root-relative path, joined to the client base URL.
 pub const PATH: &str = "api/internal/graphs/quickgraphs";
 
+/// HTTP method the endpoint accepts.
 pub const METHOD: reqwest::Method = reqwest::Method::GET;

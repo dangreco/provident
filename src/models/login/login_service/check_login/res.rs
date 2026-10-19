@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CheckLoginResponse {
+    /// `true` when the session cookie is already authenticated.
     pub logged_in: bool,
 }
 

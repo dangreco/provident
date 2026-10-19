@@ -4,7 +4,8 @@
 #
 #   push to dev ─▶ Release Please ─┬─ no release: open/update the release PR on `dev`
 #                                  └─ release PR merged: tag vX.Y.Z + GitHub release
-#                                        ─▶ Promote: fast-forward `main` to that tag
+#                                        ├─▶ Promote: fast-forward `main` to that tag
+#                                        └─▶ Publish: upload `provident` to crates.io
 #
 # Release Please derives the version bump (Cargo.toml, Cargo.lock) and CHANGELOG.md from
 # Conventional Commits. `main` only ever moves to a released commit, and only forward: if it
@@ -98,3 +99,35 @@ jobs:
             gh api --method POST "repos/$REPO/git/refs" -f ref=refs/heads/main -f sha="$SHA"
           fi
           echo "main → $TAG ($SHA)" >>"$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: Publish to crates.io
+    needs: release-please
+    if: ${{ needs.release-please.outputs.released == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # Trusted publishing: crates.io exchanges this job's OIDC token for a short-lived
+      # publish token, so no long-lived CARGO_REGISTRY_TOKEN secret is needed.
+      id-token: write
+      # cache-nix-action purges old Nix caches.
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          cargo-cache-key: publish
+
+      - name: crates.io token
+        id: crates-io
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-io.outputs.token }}
+        run: cargo publish --locked -p provident

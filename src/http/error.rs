@@ -4,8 +4,10 @@ use reqwest::StatusCode;
 
 use crate::http::constants::ERROR_BODY_PREVIEW_LIMIT;
 
+/// [`std::result::Result`] defaulting its error type to [`Error`].
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
+/// Failure while building, sending, or decoding an HTTP request.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// Base URL or endpoint path could not be parsed/joined.
@@ -27,15 +29,23 @@ pub enum Error {
     /// Response body was not valid JSON for the expected type.
     #[error("failed to deserialize response ({status}): {source}")]
     Deserialize {
+        /// Status of the response whose body failed to decode.
         status: StatusCode,
+        /// Leading portion of the response body, lossily decoded as UTF-8.
         body: String,
+        /// Underlying JSON error.
         #[source]
         source: serde_json::Error,
     },
 
     /// Server answered with a non-2xx status.
     #[error("http {status}: {body}")]
-    Status { status: StatusCode, body: String },
+    Status {
+        /// Non-2xx status of the response.
+        status: StatusCode,
+        /// Leading portion of the response body, lossily decoded as UTF-8.
+        body: String,
+    },
 
     /// Connection, TLS, timeout, or other transport failure.
     #[error("transport error: {0}")]
@@ -52,6 +62,7 @@ impl Error {
         }
     }
 
+    /// Whether this is a transport error caused by a timeout.
     pub fn is_timeout(&self) -> bool {
         matches!(self, Self::Transport(e) if e.is_timeout())
     }

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 /// One series per utility present among the requested meters. Empty when nothing matched.
 pub type QuickGraphsResponse = Vec<Series>;
 
+/// Consumption series of one utility, in one unit.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Series {
     /// Utility with its unit, as a display label: `Cold Water (m3)`.

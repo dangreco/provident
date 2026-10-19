@@ -8,6 +8,7 @@ use crate::models::api::internal::usage::{MeterList, date};
 /// Query string parameters. All are required; omitting any answers 404.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, bon::Builder)]
 pub struct QuickGraphsRequest {
+    /// Meters and/or groups to include; must not be empty.
     #[serde(rename = "meterlist")]
     #[builder(into)]
     pub meters: MeterList,

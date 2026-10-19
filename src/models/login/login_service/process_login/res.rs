@@ -7,8 +7,10 @@ use crate::models::aspnet::JsonString;
 /// `d` is the result serialized into a JSON string: `"{ \"success\": false, \"msg\": \"…\" }"`.
 pub type ProcessLoginResponse = JsonString<ProcessLoginResult>;
 
+/// Outcome of a login attempt.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProcessLoginResult {
+    /// `true` when the credentials were accepted.
     pub success: bool,
     /// User-facing reason on failure (e.g. `"Invalid Username or Password"`). Only observed on
     /// failure, so treated as optional.

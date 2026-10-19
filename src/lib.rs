@@ -1,21 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! High-level Provident API client: `client.auth.login(..)`, `client.account.meters()`,
-//! `client.usage.series(..)`, ….
-//!
-//! Async by default; with `default-features = false, features = ["blocking"]` every endpoint
-//! method is a plain blocking `fn` instead (via `maybe_async`). Exactly one must be enabled.
-//!
-//! # Layout
-//!
-//! Endpoints are grouped by feature area, not by URL: each area is a public field of
-//! [`Client`] (e.g. [`Client::auth`]) backed by `src/<area>/mod.rs`, with one file per
-//! operation (`src/auth/login.rs`) holding an `impl` block for the area. Request/response
-//! types come from [`crate::models`], whose tree mirrors the URL; the area module is where
-//! the friendly name (`login`) is mapped to the wire endpoint (`LoginService.aspx/ProcessLogin`).
-//!
-//! All areas share one HTTP client, so cookies set by [`auth::Auth::login`] authorize every
-//! later call.
+// Layout (for contributors): endpoints are grouped by feature area, not by URL. Each area is a
+// public field of `Client` backed by `src/<area>/mod.rs`, with one file per operation (e.g.
+// `src/auth/login.rs`) holding an `impl` block for the area. Request/response types live in
+// `models`, whose tree mirrors the portal's URLs; the area module maps the friendly name
+// (`login`) to the wire endpoint (`LoginService.aspx/ProcessLogin`). All areas share one HTTP
+// client, so the session cookie set by `auth.login` authorizes every later call.
+
+// The README is the crate documentation (docs.rs and crates.io show the same text) and its
+// example is compiled as a doctest. It is async-only, so blocking builds get a short summary.
+#![cfg_attr(feature = "async", doc = include_str!("../README.md"))]
+#![cfg_attr(
+    not(feature = "async"),
+    doc = "Unofficial client for the Provident (MeterConnex) utility metering portal (blocking API)."
+)]
+#![warn(missing_docs)]
 
 #[cfg(all(feature = "async", feature = "blocking"))]
 compile_error!(
@@ -51,6 +50,7 @@ impl Client {
         Self::with_config(ClientConfig::default())
     }
 
+    /// Client for a custom [`ClientConfig`] (base URL, timeouts, headers, user agent).
     pub fn with_config(config: ClientConfig) -> Result<Self> {
         let http = http::Client::new(config)?;
         Ok(Self {

@@ -16,7 +16,7 @@
         {
           "type": "toml",
           "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value && @.name.value.startsWith('provident_'))].version"
+          "jsonpath": "$.package[?(@.name.value == 'provident' || @.name.value == 'provident_tests')].version"
         }
       ],
       "changelog-sections": [

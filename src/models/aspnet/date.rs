@@ -26,6 +26,7 @@ use serde::{Deserialize, Deserializer, Serializer};
 const PREFIX: &str = "/Date(";
 const SUFFIX: &str = ")/";
 
+/// Serializes as `/Date(<ms since epoch>)/`, without an offset.
 pub fn serialize<S: Serializer>(value: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.collect_str(&format_args!(
         "{PREFIX}{}{SUFFIX}",
@@ -33,6 +34,7 @@ pub fn serialize<S: Serializer>(value: &DateTime<Utc>, serializer: S) -> Result<
     ))
 }
 
+/// Deserializes a `/Date(<ms>[+-HHMM])/` string into a UTC `DateTime`, ignoring any offset suffix.
 pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<DateTime<Utc>, D::Error> {
     let raw = <std::borrow::Cow<'de, str>>::deserialize(deserializer)?;
     parse(&raw).ok_or_else(|| D::Error::custom(format_args!("invalid ASP.NET date: {raw:?}")))
@@ -58,6 +60,7 @@ pub mod option {
     use chrono::{DateTime, Utc};
     use serde::{Deserialize, Deserializer, Serializer};
 
+    /// Serializes `Some` as a `/Date(…)/` string and `None` as JSON `null`.
     pub fn serialize<S: Serializer>(
         value: &Option<DateTime<Utc>>,
         serializer: S,
@@ -68,6 +71,7 @@ pub mod option {
         }
     }
 
+    /// Deserializes an optional `/Date(…)/` string; JSON `null` becomes `None`.
     pub fn deserialize<'de, D: Deserializer<'de>>(
         deserializer: D,
     ) -> Result<Option<DateTime<Utc>>, D::Error> {

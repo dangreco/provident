@@ -8,8 +8,10 @@ use serde::Serialize;
 #[derive(Clone, PartialEq, Eq, Serialize, bon::Builder)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessLoginRequest {
+    /// Login name.
     #[builder(into)]
     pub username: String,
+    /// Account password; redacted from `Debug` output.
     #[builder(into)]
     pub password: String,
     /// Persistent auth cookie ("Remember me" checkbox).

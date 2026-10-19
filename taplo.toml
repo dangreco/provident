@@ -1,1 +1,3 @@
-include = ["*.toml", "lib/**/*.toml", "tests/**/*.toml"]
+# Cargo.toml/lock are owned by cargo-sort (they disagree about array indentation).
+include = ["*.toml", "tests/**/*.toml"]
+exclude = ["**/Cargo.toml", "**/Cargo.lock"]

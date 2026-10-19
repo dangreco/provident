@@ -7,6 +7,7 @@ use crate::models::common::{GroupId, MeterId, NodeId, UnknownUtility, Utility};
 /// One node of the meter tree (a jsTree node as sent by the server).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreeNode {
+    /// Node id: `MP:<n>` for a metering point, `GROUP:<n>` for a group.
     pub id: NodeId,
     /// Parent node; `None` for a top-level node (sent as `#`).
     #[serde(with = "parent")]
@@ -26,6 +27,7 @@ pub struct TreeNode {
     pub children: Option<bool>,
 }
 
+/// Anchor attributes of a [`TreeNode`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodeAnchor {
     /// For meters: `<name> [<utility> - <unit>] - <serial>`.
@@ -67,10 +69,12 @@ mod parent {
 }
 
 impl TreeNode {
+    /// The group id, if this node is a group (`GROUP:<n>`).
     pub fn group_id(&self) -> Option<GroupId> {
         self.id.group()
     }
 
+    /// The meter id, if this node is a metering point (`MP:<n>`).
     pub fn meter_id(&self) -> Option<MeterId> {
         self.id.meter()
     }
@@ -92,11 +96,13 @@ impl TreeNode {
 /// [`serial`](Self::serial) is the physical meter number the portal shows as "Meter #".
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Meter {
+    /// Metering point id (`MP:<n>`).
     pub id: MeterId,
     /// Group the meter belongs to (typically the unit/suite).
     pub group: Option<GroupId>,
     /// Unit/suite the meter belongs to, e.g. `3105`.
     pub name: String,
+    /// Utility this meter measures.
     pub utility: Utility,
     /// Unit of measure, e.g. `m3` or `kWh`.
     pub unit: String,
@@ -114,15 +120,26 @@ impl Meter {
 /// A tree node that could not be read as a [`Meter`].
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum InvalidMeter {
+    /// The node's id is not a metering point (`MP:<n>`).
     #[error("node {0} is not a metering point")]
     NotAMeter(NodeId),
+    /// The meter node has no anchor title to read its details from.
     #[error("meter {0} has no title")]
     MissingTitle(MeterId),
+    /// The anchor title does not match `<name> [<utility> - <unit>] - <serial>`.
     #[error("meter {id} has an unrecognized title {title:?}")]
-    MalformedTitle { id: MeterId, title: String },
+    MalformedTitle {
+        /// Id of the offending meter.
+        id: MeterId,
+        /// The title that failed to parse.
+        title: String,
+    },
+    /// The utility in the title is not a known [`Utility`].
     #[error("meter {id}: {source}")]
     UnknownUtility {
+        /// Id of the offending meter.
         id: MeterId,
+        /// The underlying unrecognized-utility error.
         #[source]
         source: UnknownUtility,
     },

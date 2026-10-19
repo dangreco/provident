@@ -28,12 +28,15 @@ pub struct ClientConfig {
     )]
     pub(crate) base_url: Url,
 
+    /// Total per-request timeout, from start of connect until the body is read.
     #[builder(default = DEFAULT_TIMEOUT)]
     pub(crate) timeout: Duration,
 
+    /// Timeout for establishing the connection only.
     #[builder(default = DEFAULT_CONNECT_TIMEOUT)]
     pub(crate) connect_timeout: Duration,
 
+    /// `User-Agent` header value sent with every request.
     #[builder(into, default = USER_AGENT.to_owned())]
     pub(crate) user_agent: String,
 }
@@ -45,6 +48,7 @@ impl Default for ClientConfig {
 }
 
 impl ClientConfig {
+    /// Base URL that endpoint paths are resolved against; always ends with `/`.
     pub fn base_url(&self) -> &Url {
         &self.base_url
     }

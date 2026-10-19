@@ -24,6 +24,8 @@ pub struct Client {
 }
 
 impl Client {
+    /// Builds a client from `config`, with a cookie store so session cookies persist across
+    /// requests and clones.
     pub fn new(config: ClientConfig) -> Result<Self> {
         let inner = Inner::builder()
             .timeout(config.timeout)
@@ -39,6 +41,7 @@ impl Client {
         })
     }
 
+    /// Configuration this client was built with.
     pub fn config(&self) -> &ClientConfig {
         &self.config
     }
@@ -63,11 +66,15 @@ impl Client {
         decode(status, &bytes, unwrap_d)
     }
 
+    /// Builds the endpoint's [`Request`], sends it, and decodes the response as
+    /// [`Endpoint::Response`].
     #[cfg(feature = "async")]
     pub async fn execute<E: Endpoint>(&self, endpoint: &E) -> Result<E::Response> {
         self.send(endpoint.request()?).await
     }
 
+    /// Builds the endpoint's [`Request`], sends it, and decodes the response as
+    /// [`Endpoint::Response`].
     #[cfg(feature = "blocking")]
     pub fn execute<E: Endpoint>(&self, endpoint: &E) -> Result<E::Response> {
         self.send(endpoint.request()?)

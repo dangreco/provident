@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Utility {
+    /// Electrical energy.
     #[serde(rename = "Electricity")]
     Electricity,
     /// Domestic cold water.
@@ -28,10 +29,13 @@ pub enum Utility {
     /// Domestic hot water.
     #[serde(rename = "Hot Water", alias = "DHW")]
     HotWater,
+    /// District or building heating.
     #[serde(rename = "Heating")]
     Heating,
+    /// District or building cooling.
     #[serde(rename = "Cooling")]
     Cooling,
+    /// Natural gas.
     #[serde(rename = "Gas")]
     Gas,
     /// Electric vehicle charging.
