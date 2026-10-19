@@ -3,10 +3,13 @@
 # Maintains a release PR on `dev` from Conventional Commits (version bump in Cargo.toml and
 # Cargo.lock, CHANGELOG.md). Merging that PR tags `vX.Y.Z` and publishes a GitHub release.
 #
-# Uses the RELEASE_PLEASE_TOKEN secret (a PAT) instead of GITHUB_TOKEN: pull requests opened
-# with GITHUB_TOKEN don't trigger workflows, so the release PR would never get the required
-# `CI` check. Fine-grained PAT scoped to this repo needs:
-#   Contents: read & write, Pull requests: read & write, Issues: read & write (labels).
+# Authenticates as the `dangreco-release` GitHub App instead of GITHUB_TOKEN: pull requests
+# opened with GITHUB_TOKEN don't trigger workflows, so the release PR would never get the
+# required `CI` check. Each run mints a short-lived installation token from two secrets:
+#   RELEASE_APP_CLIENT_ID    the app's Client ID
+#   RELEASE_APP_PRIVATE_KEY  a private key generated for the app
+# The app must be installed on this repository with Contents, Pull requests and Issues
+# (labels) set to read & write.
 
 name: Release
 
@@ -29,9 +32,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: App token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           target-branch: dev
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
