@@ -1,20 +1,27 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
-# Reusable pipeline shared by `pr.yml` and `dev.yml`.
+# Pipeline for PRs into `dev` and for merges to `dev`:
 #
-# One job on purpose: Actions bills each job rounded up to the minute and every job pays Nix +
-# Cargo cache restore, so sequential steps in a single job cost the fewest minutes. Steps run
-# cheapest-first so most failures stop the run early.
+#   Lint ─┬─ Async    / Unit ─ E2E ─┬─ CI (summary + coverage)
+#         └─ Blocking / Unit ─ E2E ─┘
+#
+# Branch rulesets only need to require the `CI` check: it fails if any job before it failed or
+# was cancelled. Only runs on `dev` (push / manual) save caches; PRs restore them read-only.
 
 name: CI
 
 on:
-  workflow_call:
-    secrets:
-      PROVIDENT_USERNAME:
-        required: false
-      PROVIDENT_PASSWORD:
-        required: false
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [dev]
+  # Manual re-run, e.g. to re-warm caches after they expire.
+  workflow_dispatch:
+
+# PRs: a new push cancels the in-flight run. `dev`: queue, so every merge gets a verdict.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -24,18 +31,18 @@ env:
   # Fail instead of silently updating Cargo.lock. Not named `CARGO`: cargo subcommands
   # (e.g. `cargo fmt` in the rustfmt hook) read `$CARGO` as the path to the cargo binary.
   CARGO_CMD: cargo --locked
-  # `secrets` can't be used in `if:`; expose presence (never the value) as a flag.
-  HAS_CREDENTIALS: ${{ secrets.PROVIDENT_USERNAME != '' && secrets.PROVIDENT_PASSWORD != '' }}
 
 jobs:
-  ci:
-    name: Hooks, lint, test (async + blocking), e2e
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     permissions:
       contents: read
       # cache-nix-action purges old Nix caches.
       actions: write
+    outputs:
+      e2e: ${{ steps.credentials.outputs.e2e }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -43,35 +50,88 @@ jobs:
 
       - uses: ./.github/actions/setup
         with:
-          cargo-cache-key: ci
+          cargo-cache-key: lint
 
-      # The same hooks developers run on commit (formatting, TOML, spelling, secrets, SPDX, Nix).
+      # The same hooks developers run on commit (formatting, TOML, spelling, secrets, SPDX, Nix,
+      # workflows).
       - name: Pre-commit hooks
         run: pre-commit run --config "$PRE_COMMIT_CONFIG" --all-files --show-diff-on-failure
 
-      - name: Lint (async)
+      - name: Clippy (async)
         run: make lint MODE=async CARGO="$CARGO_CMD"
 
-      - name: Lint (blocking)
+      - name: Clippy (blocking)
         run: make lint MODE=blocking CARGO="$CARGO_CMD"
 
-      - name: Unit tests (async)
-        run: make test-unit MODE=async CARGO="$CARGO_CMD"
-
-      - name: Unit tests (blocking)
-        run: make test-unit MODE=blocking CARGO="$CARGO_CMD"
-
-      # Secrets are absent for PRs from forks; skip rather than fail on missing credentials.
-      - name: E2E tests (async)
-        if: ${{ env.HAS_CREDENTIALS == 'true' }}
-        run: make test-e2e MODE=async CARGO="$CARGO_CMD"
+      # Secrets can't be used in job-level `if:`, and GitHub withholds them from fork PRs.
+      # Expose only whether they exist, so E2E jobs are skipped (not failed) without them.
+      - name: Check e2e credentials
+        id: credentials
         env:
-          PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
-          PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}
+          HAS_CREDENTIALS: ${{ secrets.PROVIDENT_USERNAME != '' && secrets.PROVIDENT_PASSWORD != '' }}
+        run: echo "e2e=$HAS_CREDENTIALS" >>"$GITHUB_OUTPUT"
 
-      - name: E2E tests (blocking)
-        if: ${{ env.HAS_CREDENTIALS == 'true' }}
-        run: make test-e2e MODE=blocking CARGO="$CARGO_CMD"
+  async:
+    name: Async
+    needs: lint
+    uses: ./.github/workflows/tests.yml
+    permissions:
+      contents: read
+      actions: write
+    with:
+      mode: async
+      e2e: ${{ needs.lint.outputs.e2e == 'true' }}
+    secrets:
+      PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
+      PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}
+
+  blocking:
+    name: Blocking
+    needs: lint
+    uses: ./.github/workflows/tests.yml
+    permissions:
+      contents: read
+      actions: write
+    with:
+      mode: blocking
+      e2e: ${{ needs.lint.outputs.e2e == 'true' }}
+    secrets:
+      PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
+      PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}
+
+  # The single required check. Runs even when earlier jobs fail, so it always reports.
+  ci:
+    name: CI
+    needs: [lint, async, blocking]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      # Absent when every test job was skipped or failed before uploading; the summary reports
+      # coverage as unavailable in that case.
+      - name: Download coverage
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          pattern: coverage-*
+          path: coverage
+
+      - name: Summary
         env:
-          PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
-          PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}
+          NEEDS: ${{ toJSON(needs) }}
+        run: .github/scripts/ci-summary.sh coverage coverage.lcov
+
+      - name: Upload merged coverage
+        if: ${{ hashFiles('coverage.lcov') != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: coverage.lcov
+          retention-days: 14

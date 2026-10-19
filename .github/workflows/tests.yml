@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
+# One client mode's tests: Unit, then E2E against the real endpoint. Called by `ci.yml` once
+# per mode, so checks appear as `Async / Unit`, `Blocking / E2E`, ….
+#
+# Tests run instrumented; each job uploads an LCOV report (`coverage-<mode>-<kind>`) that the
+# `CI` job merges.
+
+name: Tests
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: Client mode, `async` or `blocking` (Makefile `MODE`).
+        type: string
+        required: true
+      e2e:
+        description: Run E2E tests (false when credentials are unavailable, e.g. fork PRs).
+        type: boolean
+        required: true
+    secrets:
+      PROVIDENT_USERNAME:
+        required: false
+      PROVIDENT_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_CMD: cargo --locked
+  MODE: ${{ inputs.mode }}
+
+jobs:
+  unit:
+    name: Unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          cargo-cache-key: tests-${{ inputs.mode }}
+
+      # Restored caches may carry profiles from an earlier run.
+      - name: Reset coverage
+        run: make coverage-clean
+
+      - name: Unit tests
+        run: make test-unit MODE="$MODE" COVERAGE=1 CARGO="$CARGO_CMD"
+
+      - name: Coverage report
+        run: make coverage-report
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-${{ inputs.mode }}-unit
+          path: target/coverage.lcov
+          retention-days: 1
+
+  e2e:
+    name: E2E
+    needs: unit
+    if: ${{ inputs.e2e }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          cargo-cache-key: tests-${{ inputs.mode }}
+
+      - name: Reset coverage
+        run: make coverage-clean
+
+      - name: E2E tests
+        run: make test-e2e MODE="$MODE" COVERAGE=1 CARGO="$CARGO_CMD"
+        env:
+          PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
+          PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}
+
+      - name: Coverage report
+        run: make coverage-report
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-${{ inputs.mode }}-e2e
+          path: target/coverage.lcov
+          retention-days: 1

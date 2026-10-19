@@ -47,6 +47,8 @@
               extensions = [
                 "clippy"
                 "rustfmt"
+                # Coverage instrumentation for cargo-llvm-cov.
+                "llvm-tools"
               ];
             };
             package = ci.override {
@@ -54,6 +56,7 @@
                 "rust-src"
                 "clippy"
                 "rustfmt"
+                "llvm-tools"
                 "rust-analyzer"
               ];
             };
@@ -168,6 +171,7 @@
               nativeBuildInputs = with pkgs; [
                 pkg-config
                 rust.package
+                cargo-llvm-cov
               ];
             };
 
@@ -187,6 +191,7 @@
               nativeBuildInputs = with pkgs; [
                 pkg-config
                 rust.ci
+                cargo-llvm-cov
               ];
             };
           };
