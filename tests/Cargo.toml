@@ -25,4 +25,5 @@ maybe-async = "0.2.11"
 provident_client = { path = "../lib/client", default-features = false }
 
 [dev-dependencies]
+chrono = { version = "0.4.45", default-features = false, features = ["std"] }
 tokio = { version = "1.53.3", features = ["macros", "rt-multi-thread"] }
