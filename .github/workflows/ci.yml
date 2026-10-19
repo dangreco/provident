@@ -56,6 +56,10 @@ jobs:
       # workflows).
       - name: Pre-commit hooks
         run: pre-commit run --config "$PRE_COMMIT_CONFIG" --all-files --show-diff-on-failure
+        env:
+          # pinact queries the GitHub API; unauthenticated calls share the runner IP's
+          # 60 requests/hour and fail intermittently with 403.
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Clippy (async)
         run: make lint MODE=async CARGO="$CARGO_CMD"
