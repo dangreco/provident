@@ -19,8 +19,8 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use provident_client::models::login::login_service::process_login::ProcessLoginRequest;
-use provident_client::{Client, ClientConfig};
+use provident::models::login::login_service::process_login::ProcessLoginRequest;
+use provident::{Client, ClientConfig};
 
 pub const USERNAME_VAR: &str = "PROVIDENT_USERNAME";
 pub const PASSWORD_VAR: &str = "PROVIDENT_PASSWORD";

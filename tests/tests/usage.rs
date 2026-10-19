@@ -5,13 +5,11 @@
 use std::collections::BTreeSet;
 
 use chrono::{Days, NaiveDate};
-use provident_client::models::api::internal::graphs::quick_graphs::QuickGraphsRequest;
-use provident_client::models::api::internal::reports::quick_report::{
-    QuickReportRequest, RowSource,
-};
-use provident_client::models::api::internal::usage::MeterList;
-use provident_client::models::common::NodeId;
-use provident_client::{Client, Error};
+use provident::models::api::internal::graphs::quick_graphs::QuickGraphsRequest;
+use provident::models::api::internal::reports::quick_report::{QuickReportRequest, RowSource};
+use provident::models::api::internal::usage::MeterList;
+use provident::models::common::NodeId;
+use provident::{Client, Error};
 use provident_tests::{client, credentials};
 
 /// A fixed, fully elapsed range so readings are final.

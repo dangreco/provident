@@ -4,7 +4,7 @@
 
 use std::collections::BTreeSet;
 
-use provident_client::Error;
+use provident::Error;
 use provident_tests::{client, credentials};
 
 #[ignore = "e2e"]
