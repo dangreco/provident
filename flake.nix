@@ -109,6 +109,10 @@
             # Spelling
             typos.enable = true;
 
+            # Commit messages: Conventional Commits (config in `.cz.toml`), which release-please
+            # turns into version bumps and CHANGELOG entries.
+            commitizen.enable = true;
+
             # GitHub Actions (workflows + the local composite action)
             actionlint.enable = true;
             zizmor = {
