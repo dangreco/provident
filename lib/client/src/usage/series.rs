@@ -10,7 +10,9 @@ use crate::Result;
 
 impl Usage {
     /// Consumption time series (`quickgraphs`): one series per utility, hourly for ranges of up
-    /// to 7 days and daily beyond. Empty when no requested meter matched.
+    /// to 7 days and daily beyond. Empty when no requested meter matched. Hour buckets are not
+    /// uniformly local time across utilities; see
+    /// [`provident_models::api::internal::graphs::quick_graphs`].
     #[maybe_async::maybe_async]
     pub async fn series(&self, query: &QuickGraphsRequest) -> Result<QuickGraphsResponse> {
         let request = Request::get(quick_graphs::PATH).query(query)?.build();
