@@ -93,8 +93,6 @@ jobs:
         env:
           PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
           PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}
-          # Not secret: a repository variable, e.g. `Electricity,Cold Water,Hot Water`.
-          PROVIDENT_UTILITIES: ${{ vars.PROVIDENT_UTILITIES }}
 
       - name: Coverage report
         run: make coverage-report
