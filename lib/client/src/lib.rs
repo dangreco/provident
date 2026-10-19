@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! High-level Provident API client: `client.auth.login(..)`, `client.auth.verify()`, ….
+//! High-level Provident API client: `client.auth.login(..)`, `client.account.utilities()`, ….
 //!
 //! Async by default; with `default-features = false, features = ["blocking"]` every endpoint
 //! method is a plain blocking `fn` instead (via `maybe_async`). Exactly one must be enabled.
@@ -23,6 +23,7 @@ compile_error!(
 #[cfg(not(any(feature = "async", feature = "blocking")))]
 compile_error!("enable exactly one of the `async` or `blocking` features");
 
+pub mod account;
 pub mod auth;
 mod error;
 
@@ -35,6 +36,8 @@ pub use provident_models as models;
 pub struct Client {
     /// Session check and sign-in (`/login/LoginService.aspx`).
     pub auth: auth::Auth,
+    /// Data for the signed-in account (`/secure/…`); requires [`auth::Auth::login`].
+    pub account: account::Account,
 }
 
 impl Client {
@@ -46,7 +49,8 @@ impl Client {
     pub fn with_config(config: ClientConfig) -> Result<Self> {
         let http = provident_http::Client::new(config)?;
         Ok(Self {
-            auth: auth::Auth::new(http),
+            auth: auth::Auth::new(http.clone()),
+            account: account::Account::new(http),
         })
     }
 }
