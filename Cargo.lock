@@ -836,7 +836,7 @@ dependencies = [
 
 [[package]]
 name = "provident"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "bon",
  "chrono",
@@ -852,7 +852,7 @@ dependencies = [
 
 [[package]]
 name = "provident_python"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "openssl",
@@ -863,7 +863,7 @@ dependencies = [
 
 [[package]]
 name = "provident_tests"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "dotenvy",

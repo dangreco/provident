@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/dangreco/provident/compare/v0.2.1...v0.2.2) (2026-10-20)
+
+
+### Bug Fixes
+
+* stabilize windows smoke test ([#10](https://github.com/dangreco/provident/issues/10)) ([f77b410](https://github.com/dangreco/provident/commit/f77b4108d64676aa92570a6b449c47dc44e17938))
+
 ## [0.2.1](https://github.com/dangreco/provident/compare/v0.2.0...v0.2.1) (2026-10-20)
 
 
