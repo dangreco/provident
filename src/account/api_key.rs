@@ -11,6 +11,10 @@ impl Account {
     ///
     /// # Errors
     /// [`Error::PasswordRejected`] when the server refuses the password (it still answers 200).
+    ///
+    /// A wrong password counts as a failed sign-in on the account: several in a short time
+    /// briefly lock it out (logins fail), and overlapping ones can fail with HTTP 500 when the
+    /// portal's database deadlocks recording them.
     #[maybe_async::maybe_async]
     pub async fn api_key(&self, password: &str) -> Result<String> {
         let body = GetKeyRequest {
