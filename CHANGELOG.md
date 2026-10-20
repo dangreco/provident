@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/dangreco/provident/compare/v0.2.0...v0.2.1) (2026-10-20)
+
+
+### Features
+
+* **python:** publish the Rust client as the provident PyPI package ([#8](https://github.com/dangreco/provident/issues/8)) ([73da34a](https://github.com/dangreco/provident/commit/73da34a84e555665aab8f5b512c3cc692ebeadba))
+
 ## [0.2.0](https://github.com/dangreco/provident/compare/v0.1.0...v0.2.0) (2026-10-20)
 
 
