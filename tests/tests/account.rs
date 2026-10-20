@@ -94,9 +94,12 @@ async fn details_match_the_accounts_groups() {
     }
 }
 
+// Only the correct password: wrong ones count as failed sign-ins on the real account, and a few
+// overlapping (CI runs async and blocking suites at once) briefly lock it out, failing every
+// other test's login. Rejection decoding is covered by the `get_key` unit tests.
 #[ignore = "e2e"]
 #[maybe_async::test(feature = "blocking", async(feature = "async", tokio::test))]
-async fn api_key_requires_the_account_password() {
+async fn api_key_is_released_for_the_account_password() {
     let client = client();
     let creds = credentials();
     client.auth.login(&creds).await.unwrap();
@@ -106,13 +109,6 @@ async fn api_key_requires_the_account_password() {
     // Stable across calls (reading does not rotate it).
     let again = client.account.api_key(&creds.password).await.unwrap();
     assert_eq!(again, key);
-
-    let rejected = client.account.api_key("not-the-password").await;
-    assert!(
-        matches!(&rejected, Err(Error::PasswordRejected { message: Some(m) }) if !m.is_empty()),
-        "{:?}",
-        rejected.map(|_| "<key>")
-    );
 }
 
 #[ignore = "e2e"]
