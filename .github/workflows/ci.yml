@@ -3,7 +3,8 @@
 # Pipeline for PRs into `dev` and for merges to `dev`:
 #
 #   Lint ─┬─ Async    / Unit ─ E2E ─┬─ CI (summary + coverage)
-#         └─ Blocking / Unit ─ E2E ─┘
+#         ├─ Blocking / Unit ─ E2E ─┤
+#         └─ Python (lint, unit, e2e)┘
 #
 # Branch rulesets only need to require the `CI` check: it fails if any job before it failed or
 # was cancelled. Only runs on `dev` (push / manual) save caches; PRs restore them read-only.
@@ -103,10 +104,42 @@ jobs:
       PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
       PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}
 
+  # Python bindings (`python/`): one job, since lint, unit and e2e share one extension build.
+  python:
+    name: Python
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          cargo-cache-key: python
+
+      # Builds the extension, then ruff, mypy, and stubtest against it.
+      - name: Lint
+        run: make py-lint
+
+      - name: Unit tests
+        run: make py-test
+
+      - name: E2E tests
+        if: ${{ needs.lint.outputs.e2e == 'true' }}
+        run: make py-test-e2e
+        env:
+          PROVIDENT_USERNAME: ${{ secrets.PROVIDENT_USERNAME }}
+          PROVIDENT_PASSWORD: ${{ secrets.PROVIDENT_PASSWORD }}
+
   # The single required check. Runs even when earlier jobs fail, so it always reports.
   ci:
     name: CI
-    needs: [lint, async, blocking]
+    needs: [lint, async, blocking, python]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

@@ -12,6 +12,9 @@ billing-period reports for electricity, water, heating, cooling, and gas.
 > Not affiliated with or endorsed by Provident or QMC. The portal has no public API; this
 > crate talks to the same endpoints its web pages use, which may change without notice.
 
+Python bindings are published on PyPI as [`provident`](https://pypi.org/project/provident/)
+(`pip install provident`); see [`python/README.md`](https://github.com/dangreco/provident/blob/dev/python/README.md).
+
 ## Installation
 
 ```toml
