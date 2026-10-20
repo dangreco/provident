@@ -3,3 +3,11 @@
 .pre-commit-config.yaml
 /target
 .env
+# Python bindings: dev venv, the extension `maturin develop` builds in place, tool caches.
+/python/.venv
+/python/provident/*.so
+/python/provident/*.pyd
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/

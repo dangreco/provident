@@ -2,6 +2,7 @@
 #
 # MODE selects the client flavour for build/check/test targets: `async` (default) or `blocking`.
 # The two are mutually exclusive, so `blocking` swaps the default feature on every package.
+# The Python bindings (`python/`) are built on the async client, so only `async` includes them.
 
 CARGO ?= cargo
 MODE ?= async
@@ -9,10 +10,17 @@ MODE ?= async
 ifeq ($(MODE),async)
   PACKAGES := --workspace
 else ifeq ($(MODE),blocking)
-  PACKAGES := --workspace --no-default-features --features blocking
+  PACKAGES := --workspace --exclude provident_python --no-default-features --features blocking
 else
   $(error MODE must be `async` or `blocking`, got `$(MODE)`)
 endif
+
+# Python bindings: a venv in python/.venv that sees the interpreter's own packages (pytest,
+# mypy from the dev shell), with the extension installed into it by `maturin develop`.
+PYTHON ?= python3
+PY_DIR := $(CURDIR)/python
+PY_VENV := $(PY_DIR)/.venv
+PY := $(PY_VENV)/bin/python
 
 # COVERAGE=1 runs test targets instrumented (cargo-llvm-cov), accumulating profiles in
 # target/llvm-cov-target so unit + e2e runs merge into one report (`make coverage-report`).
@@ -30,6 +38,7 @@ endif
 
 .DEFAULT_GOAL := help
 .PHONY: help build check lint fmt fmt-check test test-unit test-e2e coverage-clean coverage-report
+.PHONY: py-dev py-lint py-fmt py-test py-test-e2e py-wheel
 
 help: ## List targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z0-9-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -68,3 +77,26 @@ coverage-clean: ## Drop accumulated coverage profiles
 coverage-report: ## Merge COVERAGE=1 test runs into target/coverage.lcov and print a summary
 	$(COV_REPORT) report --lcov --output-path target/coverage.lcov
 	$(COV_REPORT) report --summary-only
+
+$(PY):
+	$(PYTHON) -m venv --system-site-packages $(PY_VENV)
+
+py-dev: $(PY) ## Build the Python extension (debug) into python/.venv
+	cd $(PY_DIR) && VIRTUAL_ENV=$(PY_VENV) maturin develop
+
+py-lint: py-dev ## Ruff, mypy, and a stub check against the built extension
+	cd $(PY_DIR) && ruff check . && ruff format --check .
+	cd $(PY_DIR) && $(PY) -m mypy
+	cd $(PY_DIR) && $(PY) -m mypy.stubtest provident._provident
+
+py-fmt: ## Format Python sources
+	cd $(PY_DIR) && ruff check --fix . && ruff format .
+
+py-test: py-dev ## Offline Python tests (local fake portal)
+	cd $(PY_DIR) && $(PY) -m pytest
+
+py-test-e2e: py-dev ## Python tests against the real endpoint (same env as test-e2e)
+	cd $(PY_DIR) && $(PY) -m pytest -m e2e
+
+py-wheel: ## Release wheel + sdist for this machine into target/wheels
+	cd $(PY_DIR) && maturin build --release --sdist

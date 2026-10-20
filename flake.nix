@@ -30,6 +30,7 @@
       perSystem =
         {
           config,
+          lib,
           pkgs,
           system,
           ...
@@ -61,6 +62,15 @@
               ];
             };
           };
+
+          # Interpreter for the bindings' tests and type checks (`make py-*`). The venv there
+          # inherits these packages; maturin installs the extension into it.
+          python = pkgs'.python3.withPackages (
+            ps: with ps; [
+              pytest
+              mypy
+            ]
+          );
 
           spdx = {
             license = "GPL-3.0-only";
@@ -101,6 +111,10 @@
             # compile. Clippy runs per mode via `make lint MODE=…` (locally and in CI).
             clippy.enable = false;
             cargo-sort.enable = true;
+
+            # Python (bindings in `python/`; ruff reads `python/pyproject.toml`)
+            ruff.enable = true;
+            ruff-format.enable = true;
 
             # TOML
             taplo.enable = true;
@@ -155,6 +169,7 @@
               types_or = [
                 "rust"
                 "nix"
+                "python"
               ];
             };
           };
@@ -162,6 +177,8 @@
           devShells = {
             default = pkgs.mkShellNoCC {
               inherit (config.pre-commit) shellHook;
+              # Other tools put a bare `python3` on PATH too; `make py-*` must use this one.
+              PYTHON = lib.getExe python;
 
               packages =
                 with pkgs;
@@ -176,6 +193,8 @@
                 pkg-config
                 rust.package
                 cargo-llvm-cov
+                python
+                maturin
               ];
             };
 
@@ -184,6 +203,7 @@
             # runs exactly the hooks developers do: `pre-commit run -c "$PRE_COMMIT_CONFIG" …`.
             ci = pkgs.mkShellNoCC {
               PRE_COMMIT_CONFIG = config.pre-commit.settings.configFile;
+              PYTHON = lib.getExe python;
 
               packages = [
                 config.pre-commit.settings.package
@@ -196,6 +216,8 @@
                 pkg-config
                 rust.ci
                 cargo-llvm-cov
+                python
+                maturin
               ];
             };
           };

@@ -1,0 +1,59 @@
+[build-system]
+requires = ["maturin>=1.15,<2"]
+build-backend = "maturin"
+
+[project]
+name = "provident"
+description = "Unofficial client for the Provident (MeterConnex) utility metering portal: meters, usage history, and reports"
+readme = "README.md"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "Dan Greco", email = "git@dangre.co" }]
+keywords = ["provident", "meterconnex", "utility", "metering", "energy"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Rust",
+  "Framework :: AsyncIO",
+  "Typing :: Typed",
+]
+# Taken from the workspace Cargo.toml, which release-please bumps.
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/dangreco/provident"
+Repository = "https://github.com/dangreco/provident"
+Issues = "https://github.com/dangreco/provident/issues"
+Changelog = "https://github.com/dangreco/provident/blob/dev/CHANGELOG.md"
+
+[tool.maturin]
+# `provident/` (Python sources, stubs) plus the compiled `provident._provident`.
+python-source = "."
+module-name = "provident._provident"
+manifest-path = "Cargo.toml"
+# Not `locked = true`: the sdist trims the workspace to the crates it needs, which changes
+# Cargo.lock, so `--locked` would reject every source install. Wheels are built `--locked`.
+include = [{ path = "LICENSE", format = "sdist" }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "e2e: talks to the real portal; needs PROVIDENT_USERNAME/PASSWORD (run with `-m e2e`)",
+]
+addopts = "-m 'not e2e'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "PYI", "RUF"]
+# Stub docstrings are what IDEs show on hover for the compiled module.
+ignore = ["PYI021"]
+
+[tool.mypy]
+strict = true
+files = ["provident", "tests"]
