@@ -802,7 +802,7 @@ dependencies = [
 
 [[package]]
 name = "provident"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bon",
  "chrono",
@@ -818,7 +818,7 @@ dependencies = [
 
 [[package]]
 name = "provident_tests"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "dotenvy",
