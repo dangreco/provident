@@ -10,6 +10,7 @@ import json
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -372,3 +373,11 @@ def test_rates_other_sections_are_exposed_apart(
     rates = run(client, lambda c: c.rates.fetch())
     assert rates.tou_on_peak.current == 20.3
     assert rates.sections["EV Charging Rates"]["On-Peak"].current == 25.0
+
+
+def test_rates_fixture_matches_the_rust_one() -> None:
+    """The two copies of the rates page must not drift apart (skipped outside the checkout)."""
+    rust = Path(__file__).resolve().parents[2] / "tests/fixtures/rates_page.html"
+    if not rust.is_file():
+        pytest.skip("not run from the repository checkout")
+    assert rust.read_text() == RATES_HTML

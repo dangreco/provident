@@ -92,8 +92,12 @@ py-lint: py-dev ## Ruff, mypy, and a stub check against the built extension
 py-fmt: ## Format Python sources
 	cd $(PY_DIR) && ruff check --fix . && ruff format .
 
-py-test: py-dev ## Offline Python tests (local fake portal)
+py-test: py-dev ## Offline Python tests (local fake portal), also from a copy outside the checkout
 	cd $(PY_DIR) && $(PY) -m pytest
+	@# The release smoke test runs a copy of the tests next to the installed wheel; catch
+	@# tests that reach into the checkout before a release does.
+	tmp=$$(mktemp -d) && cp -r $(PY_DIR)/tests "$$tmp/tests" && cd "$$tmp" && \
+		$(PY) -m pytest tests -m "not e2e" -p no:cacheprovider -q; status=$$?; rm -rf "$$tmp"; exit $$status
 
 py-test-e2e: py-dev ## Python tests against the real endpoint (same env as test-e2e)
 	cd $(PY_DIR) && $(PY) -m pytest -m e2e
