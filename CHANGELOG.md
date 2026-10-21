@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/dangreco/provident/compare/v0.2.2...v0.3.0) (2026-10-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* published rates and fees from Provident's rates site ([#12](https://github.com/dangreco/provident/issues/12))
+
+### Features
+
+* published rates and fees from Provident's rates site ([#12](https://github.com/dangreco/provident/issues/12)) ([ca7a307](https://github.com/dangreco/provident/commit/ca7a3071bd659a5f5532991c9b80a2e6d68f83c5))
+
 ## [0.2.2](https://github.com/dangreco/provident/compare/v0.2.1...v0.2.2) (2026-10-20)
 
 
