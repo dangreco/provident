@@ -118,5 +118,6 @@ def rates_login_rejected() -> Route:
     return (200, {"response": "no", "message": "Invalid login.", "error": 0})
 
 
-#: The real rates-and-fees page (trimmed), shared with the Rust unit tests.
-RATES_HTML = (Path(__file__).resolve().parents[2] / "tests/fixtures/rates_page.html").read_text()
+#: The real rates-and-fees page (trimmed). A copy of `tests/fixtures/rates_page.html` that lives
+#: here because the wheel smoke test runs these tests from outside the checkout.
+RATES_HTML = (Path(__file__).resolve().parent / "fixtures/rates_page.html").read_text()
