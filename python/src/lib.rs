@@ -25,6 +25,8 @@ fn _provident(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<models::Series>()?;
     m.add_class::<models::ReportRow>()?;
     m.add_class::<models::AccountDetails>()?;
+    m.add_class::<models::RateEntry>()?;
+    m.add_class::<models::PublishedRates>()?;
     m.add_class::<client::Client>()?;
     m.add_class::<client::AsyncClient>()?;
     m.add_class::<client::Auth>()?;
@@ -33,5 +35,7 @@ fn _provident(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<client::AsyncAuth>()?;
     m.add_class::<client::AsyncAccount>()?;
     m.add_class::<client::AsyncUsage>()?;
+    m.add_class::<client::Rates>()?;
+    m.add_class::<client::AsyncRates>()?;
     Ok(())
 }

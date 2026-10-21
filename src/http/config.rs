@@ -6,9 +6,11 @@ use reqwest::header::{ACCEPT, HeaderMap, HeaderName, HeaderValue};
 use url::Url;
 
 use crate::http::constants::{
-    APPLICATION_JSON, DEFAULT_BASE_URL, DEFAULT_CONNECT_TIMEOUT, DEFAULT_TIMEOUT, USER_AGENT,
+    APPLICATION_JSON, DEFAULT_BASE_URL, DEFAULT_CONNECT_TIMEOUT, DEFAULT_RATES_BASE_URL,
+    DEFAULT_TIMEOUT, USER_AGENT,
 };
 use crate::http::error::{Error, Result};
+use crate::http::request::Site;
 
 /// Settings for [`crate::http::Client`], built via [`ClientConfig::builder`]. Unset members fall back
 /// to [`crate::http::constants`]; [`ClientConfig::default`] equals `ClientConfig::builder().build()`.
@@ -27,6 +29,14 @@ pub struct ClientConfig {
         with = |base_url: &str| -> Result<_> { parse_base_url(base_url) },
     )]
     pub(crate) base_url: Url,
+
+    /// Base URL of Provident's corporate site (published rates and fees), for
+    /// [`Site::Rates`] requests. Same joining rules as `base_url`.
+    #[builder(
+        default = parse_base_url(DEFAULT_RATES_BASE_URL).expect("DEFAULT_RATES_BASE_URL must be a valid base URL"),
+        with = |rates_base_url: &str| -> Result<_> { parse_base_url(rates_base_url) },
+    )]
+    pub(crate) rates_base_url: Url,
 
     /// Total per-request timeout, from start of connect until the body is read.
     #[builder(default = DEFAULT_TIMEOUT)]
@@ -51,6 +61,19 @@ impl ClientConfig {
     /// Base URL that endpoint paths are resolved against; always ends with `/`.
     pub fn base_url(&self) -> &Url {
         &self.base_url
+    }
+
+    /// Base URL of the rates site; always ends with `/`.
+    pub fn rates_base_url(&self) -> &Url {
+        &self.rates_base_url
+    }
+
+    /// Base URL that paths of `site` are resolved against.
+    pub(crate) fn site_url(&self, site: Site) -> &Url {
+        match site {
+            Site::Portal => &self.base_url,
+            Site::Rates => &self.rates_base_url,
+        }
     }
 }
 

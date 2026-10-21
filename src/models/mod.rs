@@ -37,4 +37,5 @@ pub mod api;
 pub mod aspnet;
 pub mod common;
 pub mod login;
+pub mod pemi;
 pub mod secure;

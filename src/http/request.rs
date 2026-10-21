@@ -6,10 +6,21 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use url::Url;
 
-use crate::http::constants::{APPLICATION_JSON, EMPTY_JSON_OBJECT};
+use crate::http::constants::{APPLICATION_FORM, APPLICATION_JSON, EMPTY_JSON_OBJECT};
 use crate::http::error::{Error, Result, body_preview};
 
-/// Transport-agnostic description of a single JSON request, executed by [`crate::http::Client`].
+/// Which site a [`Request`]'s path is resolved against.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Site {
+    /// The metering portal ([`crate::http::ClientConfig::base_url`]).
+    #[default]
+    Portal,
+    /// Provident's corporate site, which publishes rates and fees
+    /// ([`crate::http::ClientConfig::rates_base_url`]).
+    Rates,
+}
+
+/// Transport-agnostic description of a single request, executed by [`crate::http::Client`].
 ///
 /// Built with [`Request::builder`] or a method shortcut ([`Request::get`],
 /// [`Request::page_method`], …), then `.build()`.
@@ -20,8 +31,8 @@ pub struct Request {
     #[builder(start_fn)]
     pub(crate) method: Method,
 
-    /// Relative to the client's base URL; a leading `/` is ignored so it never discards
-    /// the base path.
+    /// Relative to the base URL of [`Request::site`]; a leading `/` is ignored so it never
+    /// discards the base path.
     #[builder(start_fn, into)]
     pub(crate) path: String,
 
@@ -33,9 +44,13 @@ pub struct Request {
     #[builder(field)]
     pub(crate) query: Option<String>,
 
-    /// Serialized JSON body. Set via [`RequestBuilder::json`].
+    /// Serialized body. Set via [`RequestBuilder::json`] or [`RequestBuilder::form`].
     #[builder(field)]
     pub(crate) body: Option<Vec<u8>>,
+
+    /// Site whose base URL `path` is joined to. Set via [`RequestBuilder::site`].
+    #[builder(field)]
+    pub(crate) site: Site,
 
     /// Decode the response from an ASP.NET `{"d": ...}` envelope. Set by [`Request::page_method`].
     #[builder(field)]
@@ -96,6 +111,11 @@ impl Request {
         &self.path
     }
 
+    /// Site whose base URL the path is resolved against.
+    pub fn site(&self) -> Site {
+        self.site
+    }
+
     pub(crate) fn url(&self, base: &Url) -> Result<Url> {
         let mut url = base.join(self.path.trim_start_matches('/'))?;
         if let Some(query) = &self.query {
@@ -119,6 +139,20 @@ impl<S: request_builder::State> RequestBuilder<S> {
         self.headers
             .insert(CONTENT_TYPE, HeaderValue::from_static(APPLICATION_JSON));
         Ok(self)
+    }
+
+    /// Sets a form-encoded body and `Content-Type: application/x-www-form-urlencoded`.
+    pub fn form<B: Serialize + ?Sized>(mut self, body: &B) -> Result<Self> {
+        self.body = Some(serde_urlencoded::to_string(body)?.into_bytes());
+        self.headers
+            .insert(CONTENT_TYPE, HeaderValue::from_static(APPLICATION_FORM));
+        Ok(self)
+    }
+
+    /// Resolves the path against `site`'s base URL instead of the portal's.
+    pub fn site(mut self, site: Site) -> Self {
+        self.site = site;
+        self
     }
 
     /// Adds (or replaces) a header for this request only; overrides client defaults.
@@ -170,6 +204,17 @@ pub(crate) fn decode<T: DeserializeOwned>(
         body: body_preview(bytes),
         source,
     })
+}
+
+/// Maps a raw response to its body as text (lossy UTF-8): non-2xx → [`Error::Status`].
+pub(crate) fn text(status: StatusCode, bytes: &[u8]) -> Result<String> {
+    if !status.is_success() {
+        return Err(Error::Status {
+            status,
+            body: body_preview(bytes),
+        });
+    }
+    Ok(String::from_utf8_lossy(bytes).into_owned())
 }
 
 #[cfg(test)]
