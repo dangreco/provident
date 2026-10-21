@@ -52,6 +52,11 @@ report = client.usage.report(meters, date(2026, 9, 1), date(2026, 10, 1))
 for utility, rows in report.items():
     for row in rows:
         print(utility, row.serial, row.total)
+
+# Published rates for the account's location (¢/kWh; fees per 30 days).
+client.rates.login("your-login", "your-password")
+rates = client.rates.fetch()
+print(rates.tou_on_peak.current, rates.admin_fee.current)
 ```
 
 ### asyncio
@@ -83,13 +88,15 @@ asyncio.run(main())
 | `client.auth` | `login(username, password, *, remember_me=False)`, `verify()` |
 | `client.account` | `meters()`, `meter(id)`, `meter_by_serial(serial)`, `utilities()`, `location(node)`, `details()`, `api_key(password)` |
 | `client.usage` | `series(meters, start, end, *, aggregate_groups=False)`, `report(meters, start, end, *, aggregate_groups=False, include_deactivated=False)` |
+| `client.rates` | `login(username, password)`, `fetch()` → `PublishedRates` |
 
 `meters`/`node` arguments take a `Meter`, a `TreeNode`, or a node id string (`"MP:692294"`,
 `"GROUP:121497"`); `meters` also takes an iterable of them. A group covers every meter below
-it. `Client(base_url=..., timeout=..., connect_timeout=..., user_agent=...)` overrides the
+it. `Client(base_url=..., rates_base_url=..., timeout=..., connect_timeout=..., user_agent=...)` overrides the
 defaults (timeouts in seconds).
 
 Results are read-only objects: `Meter`, `TreeNode`, `Series`, `ReportRow`, `AccountDetails`,
+`PublishedRates` (one `RateEntry` per plan period and fee, `None` when not published),
 and the `Utility` string enum. The package ships type hints.
 
 ### Errors
@@ -104,10 +111,14 @@ Every exception derives from `ProvidentError`:
 | `DecodeError` | Response in an unexpected shape | `status`, `body` |
 | `TransportError` | Connection, TLS, or timeout failure | `status`, `timeout` |
 | `InvalidMeterError` | A meter in the tree could not be read | |
+| `RatesSessionRequiredError` | `rates.fetch()` without a (live) `rates.login` | |
 
 Bad arguments (an unparsable node id, a negative timeout) raise `ValueError`/`TypeError`.
 
 ### Things worth knowing
+
+- **Rates.** `rates.login` takes the same username and password as `auth.login`; it signs in to
+  Provident's corporate site, a separate session. Rates are ¢/kWh, fees are per 30 days.
 
 - **Time zones.** Dates are calendar days with no zone. Hourly buckets for electricity behave
   like local time; water meters appear to use a fixed offset about two hours earlier in winter.

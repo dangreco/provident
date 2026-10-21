@@ -6,7 +6,7 @@ use serde::de::DeserializeOwned;
 
 use crate::http::config::ClientConfig;
 use crate::http::error::Result;
-use crate::http::request::{Endpoint, Request, decode};
+use crate::http::request::{Endpoint, Request, decode, text};
 
 #[cfg(feature = "async")]
 use reqwest::Client as Inner;
@@ -66,6 +66,26 @@ impl Client {
         decode(status, &bytes, unwrap_d)
     }
 
+    /// Sends `request` and returns the body as text (e.g. an HTML page); non-2xx →
+    /// [`crate::http::Error::Status`].
+    #[cfg(feature = "async")]
+    pub async fn send_text(&self, request: Request) -> Result<String> {
+        let response = self.build(request)?.send().await?;
+        let status = response.status();
+        let bytes = response.bytes().await?;
+        text(status, &bytes)
+    }
+
+    /// Sends `request` and returns the body as text (e.g. an HTML page); non-2xx →
+    /// [`crate::http::Error::Status`].
+    #[cfg(feature = "blocking")]
+    pub fn send_text(&self, request: Request) -> Result<String> {
+        let response = self.build(request)?.send()?;
+        let status = response.status();
+        let bytes = response.bytes()?;
+        text(status, &bytes)
+    }
+
     /// Builds the endpoint's [`Request`], sends it, and decodes the response as
     /// [`Endpoint::Response`].
     #[cfg(feature = "async")]
@@ -82,7 +102,7 @@ impl Client {
 
     #[cfg(feature = "async")]
     fn build(&self, request: Request) -> Result<reqwest::RequestBuilder> {
-        let url = request.url(&self.config.base_url)?;
+        let url = request.url(self.config.site_url(request.site))?;
         let builder = self
             .inner
             .request(request.method, url)
@@ -95,7 +115,7 @@ impl Client {
 
     #[cfg(feature = "blocking")]
     fn build(&self, request: Request) -> Result<reqwest::blocking::RequestBuilder> {
-        let url = request.url(&self.config.base_url)?;
+        let url = request.url(self.config.site_url(request.site))?;
         let builder = self
             .inner
             .request(request.method, url)

@@ -3,12 +3,15 @@
 //! Read-only Python views of the crate's response types. Each wraps the Rust value and exposes
 //! its fields as properties; ids that other calls take are exposed as node-id strings.
 
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
+use chrono::NaiveDate;
 use provident::models::api::internal::graphs::quick_graphs;
 use provident::models::api::internal::meter_tree;
 use provident::models::api::internal::reports::quick_report::{self, RowSource};
 use provident::models::common::{NodeId, Utility as RsUtility};
+use provident::models::pemi::rates_and_fees::parsed;
 use provident::models::secure::account_info::get_details;
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
@@ -348,6 +351,221 @@ impl AccountDetails {
         format!(
             "AccountDetails(login={:?}, groups={:?})",
             self.0.login, self.0.groups
+        )
+    }
+}
+
+/// One current/previous pair from the published rates page (rate plus effective dates).
+#[pyclass(frozen, eq, module = "provident")]
+#[derive(PartialEq)]
+pub struct RateEntry(pub parsed::RateEntry);
+
+#[pymethods]
+impl RateEntry {
+    /// When the current rate took effect, if shown.
+    #[getter]
+    fn current_effective(&self) -> Option<NaiveDate> {
+        self.0.current_effective
+    }
+
+    /// Current rate, if shown.
+    #[getter]
+    fn current(&self) -> Option<f64> {
+        self.0.current
+    }
+
+    /// When the previous rate took effect, if shown.
+    #[getter]
+    fn previous_effective(&self) -> Option<NaiveDate> {
+        self.0.previous_effective
+    }
+
+    /// Previous rate, if shown.
+    #[getter]
+    fn previous(&self) -> Option<f64> {
+        self.0.previous
+    }
+
+    /// The current rate, falling back to the previous one.
+    fn value(&self) -> Option<f64> {
+        self.0.value()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "RateEntry(current={}, previous={:?})",
+            {
+                let e = &self.0;
+                e.current.map_or("None".to_owned(), |v| v.to_string())
+            },
+            self.0.previous
+        )
+    }
+}
+
+impl RateEntry {
+    /// Wraps an entry, for getters of [`PublishedRates`].
+    fn wrap(entry: Option<parsed::RateEntry>) -> Option<Self> {
+        entry.map(Self)
+    }
+}
+
+/// Rates and fees Provident publishes for the account's location.
+#[pyclass(frozen, eq, module = "provident")]
+#[derive(PartialEq)]
+pub struct PublishedRates(pub parsed::Rates);
+
+#[pymethods]
+impl PublishedRates {
+    /// Tiered plan, first tier (¢/kWh below the seasonal threshold).
+    #[getter]
+    fn tier_1(&self) -> Option<RateEntry> {
+        RateEntry::wrap(self.0.electricity.tiered.get(&parsed::Tier::First).copied())
+    }
+
+    /// Tiered plan, second tier (¢/kWh above the threshold).
+    #[getter]
+    fn tier_2(&self) -> Option<RateEntry> {
+        RateEntry::wrap(
+            self.0
+                .electricity
+                .tiered
+                .get(&parsed::Tier::Second)
+                .copied(),
+        )
+    }
+
+    /// Time-of-use off-peak rate (¢/kWh).
+    #[getter]
+    fn tou_off_peak(&self) -> Option<RateEntry> {
+        RateEntry::wrap(
+            self.0
+                .electricity
+                .tou
+                .get(&parsed::TouPeriod::OffPeak)
+                .copied(),
+        )
+    }
+
+    /// Time-of-use mid-peak rate (¢/kWh).
+    #[getter]
+    fn tou_mid_peak(&self) -> Option<RateEntry> {
+        RateEntry::wrap(
+            self.0
+                .electricity
+                .tou
+                .get(&parsed::TouPeriod::MidPeak)
+                .copied(),
+        )
+    }
+
+    /// Time-of-use on-peak rate (¢/kWh).
+    #[getter]
+    fn tou_on_peak(&self) -> Option<RateEntry> {
+        RateEntry::wrap(
+            self.0
+                .electricity
+                .tou
+                .get(&parsed::TouPeriod::OnPeak)
+                .copied(),
+        )
+    }
+
+    /// Ultra-low overnight rate (¢/kWh), every night.
+    #[getter]
+    fn ulo_ultra_low_overnight(&self) -> Option<RateEntry> {
+        RateEntry::wrap(
+            self.0
+                .electricity
+                .ulo
+                .get(&parsed::UloPeriod::UltraLowOvernight)
+                .copied(),
+        )
+    }
+
+    /// ULO weekend off-peak rate (¢/kWh).
+    #[getter]
+    fn ulo_weekend_off_peak(&self) -> Option<RateEntry> {
+        RateEntry::wrap(
+            self.0
+                .electricity
+                .ulo
+                .get(&parsed::UloPeriod::WeekendOffPeak)
+                .copied(),
+        )
+    }
+
+    /// ULO mid-peak rate (¢/kWh).
+    #[getter]
+    fn ulo_mid_peak(&self) -> Option<RateEntry> {
+        RateEntry::wrap(
+            self.0
+                .electricity
+                .ulo
+                .get(&parsed::UloPeriod::MidPeak)
+                .copied(),
+        )
+    }
+
+    /// ULO on-peak rate (¢/kWh).
+    #[getter]
+    fn ulo_on_peak(&self) -> Option<RateEntry> {
+        RateEntry::wrap(
+            self.0
+                .electricity
+                .ulo
+                .get(&parsed::UloPeriod::OnPeak)
+                .copied(),
+        )
+    }
+
+    /// Provident's administration fee per 30 days, in currency units.
+    #[getter]
+    fn admin_fee(&self) -> Option<RateEntry> {
+        self.0.fees.admin.map(RateEntry)
+    }
+
+    /// Provident's meter fee per 30 days, in currency units.
+    #[getter]
+    fn meter_fee(&self) -> Option<RateEntry> {
+        self.0.fees.meter.map(RateEntry)
+    }
+
+    /// Tables for EV charging or other utilities, as published: heading -> label -> entry.
+    /// They never feed the electricity rates above.
+    #[getter]
+    fn sections(&self) -> BTreeMap<String, BTreeMap<String, RateEntry>> {
+        self.0
+            .sections
+            .iter()
+            .map(|(name, rows)| {
+                let rows = rows
+                    .iter()
+                    .map(|(l, e)| (l.clone(), RateEntry(*e)))
+                    .collect();
+                (name.clone(), rows)
+            })
+            .collect()
+    }
+
+    /// Rows the parser could not classify: label -> raw cell texts.
+    #[getter]
+    fn unknown(&self) -> BTreeMap<String, Vec<String>> {
+        self.0.unknown.clone()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "PublishedRates(tou_on_peak={}, ulo_on_peak={}, admin_fee={})",
+            self.tou_on_peak().map_or("None".to_owned(), |e| e
+                .value()
+                .map_or("None".to_owned(), |v| v.to_string())),
+            self.ulo_on_peak().map_or("None".to_owned(), |e| e
+                .value()
+                .map_or("None".to_owned(), |v| v.to_string())),
+            self.admin_fee().map_or("None".to_owned(), |e| e
+                .value()
+                .map_or("None".to_owned(), |v| v.to_string()))
         )
     }
 }

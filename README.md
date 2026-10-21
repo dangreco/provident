@@ -86,6 +86,7 @@ With the `blocking` feature the same calls exist without `.await`.
 | `client.auth` | `login`, `verify` | `LoginService.aspx` |
 | `client.account` | `meters`, `meter`, `meter_by_serial`, `utilities`, `location`, `details`, `api_key` | meter tree, `AccountInfo.aspx` |
 | `client.usage` | `series` (hourly/daily consumption), `report` (start/end readings and totals) | Quick Graphs, Quick Reports |
+| `client.rates` | `login`, `rates` (published electricity rates and Provident fees) | `pemi.com` `do-rates-login`, `rates-and-fees` |
 
 Request and response types live in [`provident::models`](https://docs.rs/provident/latest/provident/models/),
 laid out to mirror the portal's URLs. Things worth knowing:
@@ -95,6 +96,11 @@ laid out to mirror the portal's URLs. Things worth knowing:
   winter. See the `quick_graphs` module docs for details.
 - **Missing readings.** Hourly series report `0.0` for missing hours; reports flag them with
   `error` and leave values empty.
+- **Rates.** Published rates live on Provident's corporate site, a separate host and session.
+  `rates.login` takes the portal's credentials (the site calls them `LocationID` and
+  `CustomerNumber`). The page is parsed conservatively: a restyled page yields fewer fields,
+  never wrong ones, and unrecognized rows are kept in `Rates::unknown`. An expired session is
+  reported as `Error::RatesSessionRequired`, not as empty rates.
 - **Deliberately not wrapped.** The dashboard's `GetUtilities`, `UpdateCard`, and
   `GetChartData` page methods intermittently answer with another account's data, so this
   crate derives utilities from the per-account meter tree instead.

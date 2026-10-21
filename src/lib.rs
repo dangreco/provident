@@ -28,6 +28,7 @@ pub mod auth;
 mod error;
 pub mod http;
 pub mod models;
+pub mod rates;
 pub mod usage;
 
 pub use error::{Error, Result};
@@ -42,6 +43,8 @@ pub struct Client {
     pub account: account::Account,
     /// Consumption history for meters and groups; requires [`auth::Auth::login`].
     pub usage: usage::Usage,
+    /// Published rates and fees (`pemi.com`); requires [`rates::Rates::login`].
+    pub rates: rates::Rates,
 }
 
 impl Client {
@@ -56,7 +59,8 @@ impl Client {
         Ok(Self {
             auth: auth::Auth::new(http.clone()),
             account: account::Account::new(http.clone()),
-            usage: usage::Usage::new(http),
+            usage: usage::Usage::new(http.clone()),
+            rates: rates::Rates::new(http),
         })
     }
 }

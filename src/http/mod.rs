@@ -15,6 +15,6 @@ mod request;
 pub use client::Client;
 pub use config::{ClientConfig, ClientConfigBuilder};
 pub use error::{Error, Result};
-pub use request::{Endpoint, Request, RequestBuilder};
+pub use request::{Endpoint, Request, RequestBuilder, Site};
 pub use reqwest::header::{self, HeaderName, HeaderValue};
 pub use reqwest::{Method, StatusCode};

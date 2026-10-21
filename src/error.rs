@@ -27,4 +27,9 @@ pub enum Error {
     /// A meter in the account's meter tree could not be read (unexpected title or utility).
     #[error(transparent)]
     InvalidMeter(#[from] crate::models::api::internal::meter_tree::InvalidMeter),
+
+    /// The rates site served its sign-in form: there is no rates session yet, or it expired.
+    /// Call [`crate::rates::Rates::login`] again.
+    #[error("no rates session: sign in with rates.login first")]
+    RatesSessionRequired,
 }

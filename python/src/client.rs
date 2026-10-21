@@ -20,7 +20,7 @@ use pyo3::prelude::*;
 
 use crate::args::{Node, Nodes};
 use crate::errors::to_py;
-use crate::models::{AccountDetails, Meter, ReportRow, Series, TreeNode, Utility};
+use crate::models::{AccountDetails, Meter, PublishedRates, ReportRow, Series, TreeNode, Utility};
 
 /// Runs `future` to completion on the shared runtime, with the GIL released meanwhile.
 fn block_on<T: Send>(
@@ -46,12 +46,15 @@ fn seconds(name: &str, value: Option<f64>) -> PyResult<Option<Duration>> {
 /// The crate client for the constructor arguments shared by `Client` and `AsyncClient`.
 fn build(
     base_url: Option<&str>,
+    rates_base_url: Option<&str>,
     timeout: Option<f64>,
     connect_timeout: Option<f64>,
     user_agent: Option<String>,
 ) -> PyResult<provident::Client> {
     let config = ClientConfig::builder()
         .maybe_base_url(base_url)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?
+        .maybe_rates_base_url(rates_base_url)
         .map_err(|e| PyValueError::new_err(e.to_string()))?
         .maybe_timeout(seconds("timeout", timeout)?)
         .maybe_connect_timeout(seconds("connect_timeout", connect_timeout)?)
@@ -209,6 +212,23 @@ areas! {
                 .collect())
         }
     }
+
+    /// Published rates and fees; accessed as `client.rates`. Requires `rates.login` first.
+    Rates, AsyncRates: provident::rates::Rates {
+        /// Signs in to the rates site with the metering portal's credentials (username is the
+        /// location id, password the customer number). Raises `LoginRejectedError` when the
+        /// location id is refused.
+        #[pyo3(signature = (username, password))]
+        fn login(area, username: String, password: String) -> () {
+            area.login(&username, &password).await.map_err(to_py)
+        }
+
+        /// The location's published rates and fees; requires `rates.login` first. Layout
+        /// changes on the page degrade to `None` fields, never an error.
+        fn fetch(area) -> PublishedRates {
+            Ok(PublishedRates(area.rates().await.map_err(to_py)?))
+        }
+    }
 }
 
 /// Blocking client. Calls release the GIL while waiting on the network.
@@ -223,24 +243,35 @@ pub struct Client {
     /// Consumption history.
     #[pyo3(get)]
     usage: Py<Usage>,
+    /// Published rates and fees (`pemi.com`).
+    #[pyo3(get)]
+    rates: Py<Rates>,
 }
 
 #[pymethods]
 impl Client {
     #[new]
-    #[pyo3(signature = (*, base_url = None, timeout = None, connect_timeout = None, user_agent = None))]
+    #[pyo3(signature = (*, base_url = None, rates_base_url = None, timeout = None, connect_timeout = None, user_agent = None))]
     fn new(
         py: Python<'_>,
         base_url: Option<&str>,
+        rates_base_url: Option<&str>,
         timeout: Option<f64>,
         connect_timeout: Option<f64>,
         user_agent: Option<String>,
     ) -> PyResult<Self> {
-        let client = build(base_url, timeout, connect_timeout, user_agent)?;
+        let client = build(
+            base_url,
+            rates_base_url,
+            timeout,
+            connect_timeout,
+            user_agent,
+        )?;
         Ok(Self {
             auth: Py::new(py, Auth(client.auth))?,
             account: Py::new(py, Account(client.account))?,
             usage: Py::new(py, Usage(client.usage))?,
+            rates: Py::new(py, Rates(client.rates))?,
         })
     }
 }
@@ -257,24 +288,35 @@ pub struct AsyncClient {
     /// Consumption history.
     #[pyo3(get)]
     usage: Py<AsyncUsage>,
+    /// Published rates and fees (`pemi.com`).
+    #[pyo3(get)]
+    rates: Py<AsyncRates>,
 }
 
 #[pymethods]
 impl AsyncClient {
     #[new]
-    #[pyo3(signature = (*, base_url = None, timeout = None, connect_timeout = None, user_agent = None))]
+    #[pyo3(signature = (*, base_url = None, rates_base_url = None, timeout = None, connect_timeout = None, user_agent = None))]
     fn new(
         py: Python<'_>,
         base_url: Option<&str>,
+        rates_base_url: Option<&str>,
         timeout: Option<f64>,
         connect_timeout: Option<f64>,
         user_agent: Option<String>,
     ) -> PyResult<Self> {
-        let client = build(base_url, timeout, connect_timeout, user_agent)?;
+        let client = build(
+            base_url,
+            rates_base_url,
+            timeout,
+            connect_timeout,
+            user_agent,
+        )?;
         Ok(Self {
             auth: Py::new(py, AsyncAuth(client.auth))?,
             account: Py::new(py, AsyncAccount(client.account))?,
             usage: Py::new(py, AsyncUsage(client.usage))?,
+            rates: Py::new(py, AsyncRates(client.rates))?,
         })
     }
 }

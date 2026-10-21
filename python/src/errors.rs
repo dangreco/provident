@@ -26,6 +26,7 @@ fn to_pyerr(py: Python<'_>, error: &Error) -> PyResult<PyErr> {
             "PasswordRejectedError"
         }
         Error::InvalidMeter(_) => "InvalidMeterError",
+        Error::RatesSessionRequired => "RatesSessionRequiredError",
         Error::Http(http) => match http {
             HttpError::Status { status, body } => {
                 kwargs.set_item("status", status.as_u16())?;

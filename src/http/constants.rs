@@ -9,6 +9,10 @@ use std::time::Duration;
 /// (e.g. `login/LoginService.aspx/ProcessLogin`).
 pub const DEFAULT_BASE_URL: &str = "https://provident.meterconnex.com/";
 
+/// Base URL of Provident's corporate site, which serves the published rates and fees, unless
+/// overridden with `ClientConfig::builder().rates_base_url(..)`.
+pub const DEFAULT_RATES_BASE_URL: &str = "https://pemi.com/";
+
 /// `User-Agent` sent with every request unless overridden.
 pub const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
@@ -20,6 +24,9 @@ pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// MIME type used for `Accept` and `Content-Type`.
 pub const APPLICATION_JSON: &str = "application/json";
+
+/// MIME type of form-encoded request bodies.
+pub const APPLICATION_FORM: &str = "application/x-www-form-urlencoded";
 
 /// Body sent by non-GET [`crate::http::Request::page_method`]s when no arguments are given.
 pub const EMPTY_JSON_OBJECT: &[u8] = b"{}";

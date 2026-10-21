@@ -45,6 +45,10 @@ class InvalidMeterError(ProvidentError):
     """A meter in the account's meter tree could not be read."""
 
 
+class RatesSessionRequiredError(ProvidentError):
+    """The rates site served its sign-in form; call `rates.login` (again) first."""
+
+
 class HTTPStatusError(ProvidentError):
     """The server answered with a non-2xx status (e.g. 401 without a session)."""
 

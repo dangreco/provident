@@ -22,11 +22,18 @@ from provident import (
     HTTPStatusError,
     LoginRejectedError,
     PasswordRejectedError,
+    RatesSessionRequiredError,
     TransportError,
     Utility,
 )
 
-from .conftest import FakePortal, page_method
+from .conftest import (
+    RATES_HTML,
+    FakePortal,
+    page_method,
+    rates_login_ok,
+    rates_login_rejected,
+)
 
 TREE = "/api/internal/metertree/rootnodes"
 CHILDREN = "/api/internal/metertree/getchildren"
@@ -72,7 +79,7 @@ async def _call(client: AsyncClient, call: Any) -> Any:
 @pytest.fixture(params=[Client, AsyncClient], ids=["sync", "async"])
 def client(request: pytest.FixtureRequest, portal: FakePortal) -> Client | AsyncClient:
     factory: type[Client | AsyncClient] = request.param
-    return factory(base_url=portal.url)
+    return factory(base_url=portal.url, rates_base_url=portal.url)
 
 
 def test_utility_enum_covers_every_crate_utility() -> None:
@@ -279,3 +286,89 @@ def test_sync_calls_release_the_gil(portal: FakePortal) -> None:
 
     assert results == [True] * 4
     assert elapsed < 2 * portal.delay, f"calls serialized: {elapsed:.2f}s"
+
+
+RATES_LOGIN = "/do-rates-login"
+RATES_PAGE = "/rates-and-fees"
+
+
+def test_rates_login_and_fetch(client: Client | AsyncClient, portal: FakePortal) -> None:
+    portal.routes[RATES_LOGIN] = rates_login_ok()
+    portal.routes[RATES_PAGE] = (200, RATES_HTML, "text/html")
+
+    run(client, lambda c: c.rates.login("874-1010", "222212"))
+    rates = run(client, lambda c: c.rates.fetch())
+
+    # The portal's credentials go in with their fields swapped.
+    body = next(r[3] for r in portal.requests if r[1] == RATES_LOGIN)
+    assert body == b"CustomerNumber=222212&LocationID=874-1010"
+
+    assert rates.tou_off_peak.current == 9.8
+    assert rates.tou_on_peak.previous == 15.8
+    assert rates.tou_on_peak.current_effective == date(2025, 11, 1)
+    assert rates.ulo_ultra_low_overnight.current == 3.9
+    # ULO on-peak must not be confused with TOU on-peak (same "On-Peak" label).
+    assert rates.ulo_on_peak.current == 39.1
+    assert rates.tier_2.current == 14.2
+    assert rates.admin_fee.current == 11.90
+    assert rates.meter_fee.previous == 8.31
+    assert rates.tou_off_peak.value() == 9.8
+    assert rates.unknown == {}
+
+
+def test_rates_login_rejected(client: Client | AsyncClient, portal: FakePortal) -> None:
+    portal.routes[RATES_LOGIN] = rates_login_rejected()
+    with pytest.raises(LoginRejectedError) as info:
+        run(client, lambda c: c.rates.login("000-0000", "000000"))
+    assert info.value.reason == "Invalid login."
+
+
+def test_rates_sign_in_form_raises_session_required(
+    client: Client | AsyncClient, portal: FakePortal
+) -> None:
+    # What the real site serves without (or after expiry of) a rates session.
+    portal.routes[RATES_PAGE] = (
+        200,
+        '<form action="/do-rates-login" method="POST">'
+        '<input name="CustomerNumber"><input name="LocationID"></form>',
+        "text/html",
+    )
+    with pytest.raises(RatesSessionRequiredError):
+        run(client, lambda c: c.rates.fetch())
+
+
+def test_rates_page_drift_degrades_to_none(
+    client: Client | AsyncClient, portal: FakePortal
+) -> None:
+    portal.routes[RATES_LOGIN] = rates_login_ok()
+    portal.routes[RATES_PAGE] = (
+        200,
+        "<html><body><h2>Electricity Energy Rates</h2><table><tr>"
+        "<td>Time-Of-Use (TOU)</td><td></td><td></td><td></td><td></td></tr>"
+        "<tr><td>Off-Peak</td><td>—</td><td>9.8</td><td></td><td>—</td></tr>"
+        "</table></body></html>",
+        "text/html",
+    )
+    run(client, lambda c: c.rates.login("u", "p"))
+    rates = run(client, lambda c: c.rates.fetch())
+    assert rates.tou_off_peak.current == 9.8
+    assert rates.tou_off_peak.previous is None
+    assert rates.ulo_on_peak is None
+    assert rates.admin_fee is None
+
+
+def test_rates_other_sections_are_exposed_apart(
+    client: Client | AsyncClient, portal: FakePortal
+) -> None:
+    portal.routes[RATES_LOGIN] = rates_login_ok()
+    portal.routes[RATES_PAGE] = (
+        200,
+        "<h2>EV Charging Rates</h2><table>"
+        "<tr><td>On-Peak</td><td>2025-11-01</td><td>25.0</td><td></td><td></td></tr></table>"
+        + RATES_HTML,
+        "text/html",
+    )
+    run(client, lambda c: c.rates.login("u", "p"))
+    rates = run(client, lambda c: c.rates.fetch())
+    assert rates.tou_on_peak.current == 20.3
+    assert rates.sections["EV Charging Rates"]["On-Peak"].current == 25.0

@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
+# typos configuration (pre-commit hook).
+
+[default.extend-words]
+# Time-Of-Use: the OEB's Regulated Price Plan, as Provident's rates page names it.
+tou = "tou"

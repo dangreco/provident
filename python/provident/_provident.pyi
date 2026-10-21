@@ -15,10 +15,14 @@ __all__ = [
     "AsyncAccount",
     "AsyncAuth",
     "AsyncClient",
+    "AsyncRates",
     "AsyncUsage",
     "Auth",
     "Client",
     "Meter",
+    "PublishedRates",
+    "RateEntry",
+    "Rates",
     "ReportRow",
     "Series",
     "TreeNode",
@@ -133,6 +137,61 @@ class AccountDetails:
     def groups(self) -> list[str]: ...
 
 @final
+class RateEntry:
+    """One current/previous rate pair from the published rates page."""
+
+    @property
+    def current_effective(self) -> date | None: ...
+    @property
+    def current(self) -> float | None: ...
+    @property
+    def previous_effective(self) -> date | None: ...
+    @property
+    def previous(self) -> float | None: ...
+    def value(self) -> float | None: ...
+
+@final
+class PublishedRates:
+    """Rates and fees Provident publishes for the account's location."""
+
+    @property
+    def tier_1(self) -> RateEntry | None: ...
+    @property
+    def tier_2(self) -> RateEntry | None: ...
+    @property
+    def tou_off_peak(self) -> RateEntry | None: ...
+    @property
+    def tou_mid_peak(self) -> RateEntry | None: ...
+    @property
+    def tou_on_peak(self) -> RateEntry | None: ...
+    @property
+    def ulo_ultra_low_overnight(self) -> RateEntry | None: ...
+    @property
+    def ulo_weekend_off_peak(self) -> RateEntry | None: ...
+    @property
+    def ulo_mid_peak(self) -> RateEntry | None: ...
+    @property
+    def ulo_on_peak(self) -> RateEntry | None: ...
+    @property
+    def admin_fee(self) -> RateEntry | None: ...
+    @property
+    def meter_fee(self) -> RateEntry | None: ...
+    @property
+    def sections(self) -> dict[str, dict[str, RateEntry]]: ...
+    @property
+    def unknown(self) -> dict[str, list[str]]: ...
+
+@final
+class Rates:
+    def login(self, username: str, password: str) -> None: ...
+    def fetch(self) -> PublishedRates: ...
+
+@final
+class AsyncRates:
+    def login(self, username: str, password: str) -> Awaitable[None]: ...
+    def fetch(self) -> Awaitable[PublishedRates]: ...
+
+@final
 class Auth:
     def login(self, username: str, password: str, *, remember_me: bool = False) -> None: ...
     def verify(self) -> bool: ...
@@ -212,6 +271,7 @@ class Client:
         cls,
         *,
         base_url: str | None = None,
+        rates_base_url: str | None = None,
         timeout: float | None = None,
         connect_timeout: float | None = None,
         user_agent: str | None = None,
@@ -222,6 +282,8 @@ class Client:
     def account(self) -> Account: ...
     @property
     def usage(self) -> Usage: ...
+    @property
+    def rates(self) -> Rates: ...
 
 @final
 class AsyncClient:
@@ -231,6 +293,7 @@ class AsyncClient:
         cls,
         *,
         base_url: str | None = None,
+        rates_base_url: str | None = None,
         timeout: float | None = None,
         connect_timeout: float | None = None,
         user_agent: str | None = None,
@@ -241,3 +304,5 @@ class AsyncClient:
     def account(self) -> AsyncAccount: ...
     @property
     def usage(self) -> AsyncUsage: ...
+    @property
+    def rates(self) -> AsyncRates: ...

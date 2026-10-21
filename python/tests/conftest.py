@@ -20,8 +20,8 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-# (status, JSON body) for a request path; unknown paths answer 404.
-Route = tuple[int, object]
+# (status, JSON body) or (status, text body, content type) for a request path; 404 otherwise.
+Route = tuple[int, object] | tuple[int, str, str]
 
 
 @dataclass
@@ -46,11 +46,13 @@ def portal() -> Iterator[FakePortal]:
             fake.requests.append(
                 (self.command, url.path, parse_qs(url.query), self.rfile.read(length))
             )
-            status, body = fake.routes.get(url.path, (404, {"Message": "not found"}))
+            route = fake.routes.get(url.path, (404, {"Message": "not found"}))
+            status, body = route[0], route[1]
+            ctype = route[2] if len(route) > 2 else "application/json"
             time.sleep(fake.delay)
-            payload = json.dumps(body).encode()
+            payload = body.encode() if isinstance(body, str) else json.dumps(body).encode()
             self.send_response(status)
-            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
             self.wfile.write(payload)
@@ -104,3 +106,17 @@ def credentials() -> tuple[str, str]:
 @pytest.fixture
 def base_url() -> str | None:
     return _var("PROVIDENT_BASE_URL")
+
+
+def rates_login_ok() -> Route:
+    """Successful `do-rates-login` answer."""
+    return (200, {"response": "ok", "message": "", "error": 0})
+
+
+def rates_login_rejected() -> Route:
+    """Refused `do-rates-login` answer."""
+    return (200, {"response": "no", "message": "Invalid login.", "error": 0})
+
+
+#: The real rates-and-fees page (trimmed), shared with the Rust unit tests.
+RATES_HTML = (Path(__file__).resolve().parents[2] / "tests/fixtures/rates_page.html").read_text()
