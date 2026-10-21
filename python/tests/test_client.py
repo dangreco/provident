@@ -355,3 +355,20 @@ def test_rates_page_drift_degrades_to_none(
     assert rates.tou_off_peak.previous is None
     assert rates.ulo_on_peak is None
     assert rates.admin_fee is None
+
+
+def test_rates_other_sections_are_exposed_apart(
+    client: Client | AsyncClient, portal: FakePortal
+) -> None:
+    portal.routes[RATES_LOGIN] = rates_login_ok()
+    portal.routes[RATES_PAGE] = (
+        200,
+        "<h2>EV Charging Rates</h2><table>"
+        "<tr><td>On-Peak</td><td>2025-11-01</td><td>25.0</td><td></td><td></td></tr></table>"
+        + RATES_HTML,
+        "text/html",
+    )
+    run(client, lambda c: c.rates.login("u", "p"))
+    rates = run(client, lambda c: c.rates.fetch())
+    assert rates.tou_on_peak.current == 20.3
+    assert rates.sections["EV Charging Rates"]["On-Peak"].current == 25.0

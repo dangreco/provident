@@ -61,6 +61,10 @@ pub struct Rates {
     pub electricity: ElectricityRates,
     /// Provident's administration and delivery charges.
     pub fees: Fees,
+    /// Tables for anything other than suite electricity (EV charging, water, gas, thermal, …),
+    /// keyed by section heading, then row label. Their layout and units are not known, so rows
+    /// are kept as published; they never feed [`Rates::electricity`].
+    pub sections: BTreeMap<String, BTreeMap<String, RateEntry>>,
     /// Labels of rows the parser could not classify, with their raw cell texts.
     pub unknown: BTreeMap<String, Vec<String>>,
 }
@@ -119,6 +123,7 @@ impl Rates {
             && e.ulo.is_empty()
             && self.fees.admin.is_none()
             && self.fees.meter.is_none()
+            && self.sections.is_empty()
     }
 }
 

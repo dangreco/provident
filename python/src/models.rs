@@ -531,6 +531,23 @@ impl PublishedRates {
         self.0.fees.meter.map(RateEntry)
     }
 
+    /// Tables for EV charging or other utilities, as published: heading -> label -> entry.
+    /// They never feed the electricity rates above.
+    #[getter]
+    fn sections(&self) -> BTreeMap<String, BTreeMap<String, RateEntry>> {
+        self.0
+            .sections
+            .iter()
+            .map(|(name, rows)| {
+                let rows = rows
+                    .iter()
+                    .map(|(l, e)| (l.clone(), RateEntry(*e)))
+                    .collect();
+                (name.clone(), rows)
+            })
+            .collect()
+    }
+
     /// Rows the parser could not classify: label -> raw cell texts.
     #[getter]
     fn unknown(&self) -> BTreeMap<String, Vec<String>> {

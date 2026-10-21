@@ -9,9 +9,10 @@
 //! - **Tables, not headings, are the unit.** Every `<table>` is read on its own; its section is
 //!   its `<caption>` or else the nearest preceding `h1`–`h6`. Headings are optional: labels
 //!   alone identify electricity rows and fee rows.
-//! - **Foreign sections never overwrite.** A table whose section names another utility (water,
-//!   gas, thermal, …) is kept in [`Rates::unknown`], so its own "On-Peak" cannot replace the
-//!   electricity one.
+//! - **Other sections never feed electricity.** A table whose section names EV charging or
+//!   another utility (water, gas, thermal, …) is kept in [`Rates::sections`] under its heading,
+//!   so its own "On-Peak" cannot replace the suite electricity one, wherever it sits on the
+//!   page. A fees section only yields fees.
 //! - **Plans are scoped, then inferred.** A subhead row (label with every other cell empty)
 //!   naming a plan scopes the rows below it. Without subheads, plan-unique labels (`Tier 1`,
 //!   `Ultra-Low Overnight`, `Weekend Off-Peak`) set the plan, and the ambiguous `Mid-Peak` /
@@ -60,6 +61,36 @@ const FOREIGN_SECTIONS: &[&str] = &[
     "water", "gas", "thermal", "heating", "cooling", "sewer", "steam",
 ];
 
+/// What a table's section heading says it holds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Section {
+    /// Suite electricity, or no telling heading: energy rates and fees by label.
+    Electricity,
+    /// Provident's own charges: fees only.
+    Fees,
+    /// EV charging or another utility, kept apart under its heading.
+    Other(String),
+}
+
+fn section(heading: &str) -> Section {
+    let words = words(heading);
+    let starts = |prefix: &str| words.iter().any(|w| w.starts_with(prefix));
+    let ev = words.iter().any(|w| w == "ev" || w == "evs")
+        || starts("vehicle")
+        || starts("charging")
+        || starts("charger");
+    if ev || FOREIGN_SECTIONS.iter().any(|f| starts(f)) {
+        return Section::Other(heading.to_owned());
+    }
+    let energy = starts("electric") || starts("energy") || words.iter().any(|w| w == "rates");
+    let fees = starts("administration") || starts("fee") || starts("delivery");
+    if fees && !energy {
+        Section::Fees
+    } else {
+        Section::Electricity
+    }
+}
+
 /// The page's rates, or `None` when it is the sign-in form (no or expired session).
 pub(crate) fn page(document: &Html) -> Option<Rates> {
     let rates = rates(document);
@@ -77,8 +108,8 @@ pub(crate) fn rates(document: &Html) -> Rates {
             continue;
         }
         let caption = node.select(&CAPTION).next().map(cell_text);
-        let section = caption.as_deref().unwrap_or(&heading);
-        read_table(node, is_foreign(section), &mut rates);
+        let section_heading = caption.as_deref().unwrap_or(&heading);
+        read_table(node, &section(section_heading), &mut rates);
     }
     rates
 }
@@ -100,7 +131,7 @@ enum Destination {
     Meter,
 }
 
-fn read_table(table: ElementRef<'_>, foreign: bool, rates: &mut Rates) {
+fn read_table(table: ElementRef<'_>, section: &Section, rates: &mut Rates) {
     let mut plan = None;
     for tr in table.select(&ROWS) {
         let cells: Vec<String> = tr.select(&CELLS).map(cell_text).collect();
@@ -123,9 +154,29 @@ fn read_table(table: ElementRef<'_>, foreign: bool, rates: &mut Rates) {
             // Header-like rows with text but no numbers.
             continue;
         }
-        let destination = (!foreign)
-            .then(|| destination(&compact, &mut plan))
-            .flatten();
+        if let Section::Other(name) = section {
+            // No layout assumptions for other sections: keep the row as published.
+            let stored = plausible(entry, f64::MAX).is_some_and(|entry| {
+                let rows = rates.sections.entry(name.clone()).or_default();
+                match rows.entry(label.clone()) {
+                    std::collections::btree_map::Entry::Vacant(v) => {
+                        v.insert(entry);
+                        true
+                    }
+                    std::collections::btree_map::Entry::Occupied(_) => false,
+                }
+            });
+            if !stored {
+                rates
+                    .unknown
+                    .entry(label.clone())
+                    .or_insert_with(|| cells.clone());
+            }
+            continue;
+        }
+        let destination = destination(&compact, &mut plan).filter(|d| {
+            *section != Section::Fees || matches!(d, Destination::Admin | Destination::Meter)
+        });
         let stored = match destination {
             Some(Destination::Tier(tier)) => store(
                 rates.electricity.tiered.entry(tier),
@@ -254,13 +305,6 @@ fn plan_subhead(label: &str) -> Option<Plan> {
     } else {
         None
     }
-}
-
-fn is_foreign(section: &str) -> bool {
-    let words = words(section);
-    FOREIGN_SECTIONS
-        .iter()
-        .any(|f| words.iter().any(|w| w.starts_with(f)))
 }
 
 /// Current/previous pair from the cells after the label.
@@ -487,17 +531,69 @@ mod tests {
     }
 
     #[test]
-    fn other_utilities_never_overwrite_electricity() {
+    fn other_sections_are_kept_apart_wherever_they_sit() {
+        // EV and water tables before *and* after electricity; same labels as electricity's.
         let html = "
+            <h2>EV Charging Rates</h2>
+            <table><tr><td>Time-Of-Use (TOU)</td><td></td></tr>
+              <tr><td>On-Peak</td><td>2025-11-01</td><td>25.0</td><td>2024-11-01</td><td>22.0</td></tr>
+              <tr><td>Off-Peak</td><td>2025-11-01</td><td>8.0</td><td></td><td></td></tr></table>
             <h2>Electricity Energy Rates</h2>
             <table><tr><td>Time-Of-Use (TOU)</td><td></td></tr>
               <tr><td>On-Peak</td><td>2025-11-01</td><td>20.3</td><td></td><td></td></tr></table>
             <h2>Hot Water Rates</h2>
-            <table><tr><td>Time-Of-Use (TOU)</td><td></td></tr>
-              <tr><td>On-Peak</td><td>2025-11-01</td><td>4.2</td><td></td><td></td></tr></table>";
+            <table><tr><td>Rate per m³</td><td>2025-11-01</td><td>4.2</td><td></td><td></td></tr></table>";
         let rates = parse(html);
         assert_eq!(tou(&rates, TouPeriod::OnPeak), Some(20.3));
-        assert!(rates.unknown.contains_key("On-Peak"), "{:?}", rates.unknown);
+        assert_eq!(tou(&rates, TouPeriod::OffPeak), None);
+        let ev = &rates.sections["EV Charging Rates"];
+        assert_eq!(ev["On-Peak"].current, Some(25.0));
+        assert_eq!(ev["On-Peak"].previous, Some(22.0));
+        assert_eq!(ev["Off-Peak"].current, Some(8.0));
+        assert_eq!(
+            rates.sections["Hot Water Rates"]["Rate per m³"].current,
+            Some(4.2)
+        );
+        assert!(rates.unknown.is_empty(), "{:?}", rates.unknown);
+    }
+
+    #[test]
+    fn section_headings_are_classified() {
+        for other in [
+            "EV Charging Rates",
+            "Electric Vehicle Charging",
+            "EV Charger Rates",
+            "Cold Water",
+            "Gas Rates",
+            "Thermal Energy (Heating)",
+        ] {
+            assert_eq!(section(other), Section::Other(other.into()), "{other}");
+        }
+        for electricity in ["Electricity Energy Rates", "Energy Rates", "", "Rates"] {
+            assert_eq!(
+                section(electricity),
+                Section::Electricity,
+                "{electricity:?}"
+            );
+        }
+        assert_eq!(
+            section("Provident’s Administration and Delivery Charges"),
+            Section::Fees
+        );
+    }
+
+    #[test]
+    fn fees_section_never_yields_energy_rates() {
+        let html = "
+            <h2>Administration and Delivery Charges</h2>
+            <table>
+              <tr><td>On-Peak</td><td>2026-04-16</td><td>$3.00</td><td></td><td></td></tr>
+              <tr><td>Meter Fee</td><td>2026-04-16</td><td>$8.46</td><td></td><td></td></tr>
+            </table>";
+        let rates = parse(html);
+        assert!(rates.electricity.tou.is_empty(), "{rates:?}");
+        assert_eq!(rates.fees.meter.and_then(|f| f.current), Some(8.46));
+        assert!(rates.unknown.contains_key("On-Peak"));
     }
 
     #[test]
