@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/dangreco/provident/compare/v0.3.0...v0.3.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **python:** ship the rates fixture with the Python tests ([#14](https://github.com/dangreco/provident/issues/14)) ([7ad66e2](https://github.com/dangreco/provident/commit/7ad66e27e7ab963754a71d3c159122e6bb6c1526))
+
 ## [0.3.0](https://github.com/dangreco/provident/compare/v0.2.2...v0.3.0) (2026-10-21)
 
 
